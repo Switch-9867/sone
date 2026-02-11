@@ -284,7 +284,7 @@ export default function PlayerBar() {
             <button
               onClick={toggleLike}
               disabled={isLikeLoading || isLikePending}
-              className={`ml-1 flex-shrink-0 transition-all duration-200 active:scale-90 ${
+              className={`ml-1 flex-shrink-0 transition-[color,transform] duration-200 active:scale-90 ${
                 isLiked ? "text-[#1ed760]" : "text-[#666] hover:text-white"
               } ${
                 isLikeLoading || isLikePending
@@ -314,7 +314,7 @@ export default function PlayerBar() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setIsShuffle(!isShuffle)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 active:scale-90 relative ${
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-[color,background-color,transform] duration-200 active:scale-90 relative ${
               isShuffle
                 ? "text-[#00ffff]"
                 : "text-[#b3b3b3] hover:text-white hover:bg-white/[0.07]"
@@ -327,13 +327,13 @@ export default function PlayerBar() {
           </button>
           <button
             onClick={playPrevious}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-[#b3b3b3] hover:text-white hover:bg-white/[0.07] transition-all duration-150 active:scale-90"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[#b3b3b3] hover:text-white hover:bg-white/[0.07] transition-[color,background-color,transform] duration-150 active:scale-90"
           >
             <SkipBack size={18} fill="currentColor" />
           </button>
           <button
             onClick={() => (isPlaying ? pauseTrack() : resumeTrack())}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-150"
+            className="w-9 h-9 bg-white rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform duration-150"
           >
             {isPlaying ? (
               <Pause size={17} fill="black" className="text-black" />
@@ -343,13 +343,13 @@ export default function PlayerBar() {
           </button>
           <button
             onClick={playNext}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-[#b3b3b3] hover:text-white hover:bg-white/[0.07] transition-all duration-150 active:scale-90"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[#b3b3b3] hover:text-white hover:bg-white/[0.07] transition-[color,background-color,transform] duration-150 active:scale-90"
           >
             <SkipForward size={18} fill="currentColor" />
           </button>
           <button
             onClick={() => setRepeatMode((repeatMode + 1) % 3)}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 active:scale-90 relative ${
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-[color,background-color,transform] duration-200 active:scale-90 relative ${
               repeatMode > 0
                 ? "text-[#00ffff]"
                 : "text-[#b3b3b3] hover:text-white hover:bg-white/[0.07]"

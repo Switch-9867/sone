@@ -113,7 +113,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
   return (
     <div className="flex-1 bg-gradient-to-b from-[#1a1a1a] to-[#121212] overflow-y-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent">
       {/* Top Bar */}
-      <div className="sticky top-0 z-20 px-6 py-4 flex items-center gap-4 bg-[#121212]/50 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 px-6 py-4 flex items-center gap-4 bg-[#121212]">
         <button
           onClick={onBack}
           className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-[#a6a6a6] hover:text-white transition-colors"
@@ -131,7 +131,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+            className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors duration-150 ${
               activeTab === tab.id
                 ? "bg-white text-black"
                 : "bg-white/[0.07] text-[#e0e0e0] hover:bg-white/[0.12]"
@@ -347,7 +347,7 @@ function AlbumGrid({
               artistName: album.artist?.name,
             })
           }
-          className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-all duration-300"
+          className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-[background-color] duration-300"
         >
           <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-[#282828]">
             <TidalImage
@@ -356,7 +356,7 @@ function AlbumGrid({
               className="w-full h-full transform group-hover:scale-105 transition-transform duration-500 ease-out"
             />
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100">
+            <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
               <Play size={20} fill="black" className="text-black ml-1" />
             </div>
           </div>
@@ -405,7 +405,7 @@ function PlaylistGrid({
               numberOfTracks: pl.numberOfTracks,
             })
           }
-          className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-all duration-300"
+          className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-[background-color] duration-300"
         >
           <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-[#282828]">
             {pl.image ? (
@@ -421,7 +421,7 @@ function PlaylistGrid({
               </div>
             )}
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100">
+            <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
               <Play size={20} fill="black" className="text-black ml-1" />
             </div>
           </div>

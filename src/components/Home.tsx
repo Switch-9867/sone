@@ -68,7 +68,7 @@ export default function Home() {
   return (
     <div className="flex-1 bg-gradient-to-b from-[#1a1a1a] to-[#121212] overflow-y-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent">
       {/* Top Bar */}
-      <div className="sticky top-0 z-20 px-6 py-4 flex items-center justify-between bg-[#121212]/50 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 px-6 py-4 flex items-center justify-between bg-[#121212]">
         <div className="flex items-center gap-2">
           <button className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-[#a6a6a6] hover:text-white transition-colors disabled:opacity-50">
             <ChevronLeft size={20} />
@@ -91,7 +91,7 @@ export default function Home() {
             {/* Loved Tracks - always first */}
             <div
               onClick={navigateToFavorites}
-              className="flex items-center bg-[#2a2a2a]/40 hover:bg-[#2a2a2a] rounded-[4px] overflow-hidden cursor-pointer group transition-all duration-300 h-[56px] shadow-sm hover:shadow-md"
+              className="flex items-center bg-[#2a2a2a]/40 hover:bg-[#2a2a2a] rounded-[4px] overflow-hidden cursor-pointer group transition-[background-color,box-shadow] duration-300 h-[56px] shadow-sm hover:shadow-md"
             >
               <div className="w-[56px] h-[56px] flex-shrink-0 bg-gradient-to-br from-[#450af5] via-[#8e2de2] to-[#00d2ff] shadow-lg flex items-center justify-center">
                 <Heart size={22} className="text-white" fill="white" />
@@ -100,7 +100,7 @@ export default function Home() {
                 <span className="font-bold text-[13px] text-white truncate pr-2">
                   Loved Tracks
                 </span>
-                <div className="w-9 h-9 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100 flex-shrink-0">
+                <div className="w-9 h-9 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100 flex-shrink-0">
                   <Play size={18} fill="black" className="text-black ml-0.5" />
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default function Home() {
               <div
                 key={playlist.uuid}
                 onClick={() => handleOpenPlaylist(playlist)}
-                className="flex items-center bg-[#2a2a2a]/40 hover:bg-[#2a2a2a] rounded-[4px] overflow-hidden cursor-pointer group transition-all duration-300 h-[56px] shadow-sm hover:shadow-md"
+                className="flex items-center bg-[#2a2a2a]/40 hover:bg-[#2a2a2a] rounded-[4px] overflow-hidden cursor-pointer group transition-[background-color,box-shadow] duration-300 h-[56px] shadow-sm hover:shadow-md"
               >
                 <div className="w-[56px] h-[56px] flex-shrink-0 bg-[#282828] shadow-lg">
                   <TidalImage
@@ -123,7 +123,7 @@ export default function Home() {
                   <span className="font-bold text-[13px] text-white truncate pr-2">
                     {playlist.title}
                   </span>
-                  <div className="w-9 h-9 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100 flex-shrink-0">
+                  <div className="w-9 h-9 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100 flex-shrink-0">
                     <Play
                       size={18}
                       fill="black"
@@ -160,7 +160,7 @@ export default function Home() {
                       });
                     }
                   }}
-                  className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-all duration-300"
+                  className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-[background-color] duration-300"
                 >
                   <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-[#282828]">
                     <TidalImage
@@ -175,7 +175,7 @@ export default function Home() {
                         setQueueTracks(featuredTracks.slice(index + 1));
                         handlePlayTrack(track);
                       }}
-                      className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100 hover:scale-110"
+                      className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100 hover:scale-110"
                     >
                       <Play
                         size={20}
@@ -211,7 +211,7 @@ export default function Home() {
               <div
                 key={playlist.uuid}
                 onClick={() => handleOpenPlaylist(playlist)}
-                className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-all duration-300"
+                className="p-3 bg-[#181818] hover:bg-[#282828] rounded-md cursor-pointer group transition-[background-color] duration-300"
               >
                 <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-[#282828]">
                   <TidalImage
@@ -221,7 +221,7 @@ export default function Home() {
                     className="w-full h-full transform group-hover:scale-105 transition-transform duration-500 ease-out"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 transform scale-90 group-hover:scale-100">
+                  <div className="absolute bottom-2 right-2 w-10 h-10 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
                     <Play size={20} fill="black" className="text-black ml-1" />
                   </div>
                 </div>

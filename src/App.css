@@ -100,6 +100,7 @@ body {
 
 .animate-slideUp {
   animation: slideUp 0.3s ease-out both;
+  will-change: transform, opacity;
 }
 
 /* Floating button fade-in */
@@ -116,4 +117,15 @@ body {
 
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out both;
+}
+
+/* GPU-accelerated "playing" bars animation */
+@keyframes barBounce {
+  0%, 100% { transform: scaleY(0.4); }
+  50%      { transform: scaleY(1); }
+}
+
+.playing-bar {
+  will-change: transform;
+  animation: barBounce 1s ease-in-out infinite;
 }

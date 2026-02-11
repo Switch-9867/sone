@@ -390,13 +390,14 @@ function LyricsTab() {
                 ref={(el) => {
                   lineRefs.current[i] = el;
                 }}
-                className={`transition-all duration-500 ease-out cursor-default leading-snug ${
+                className={`text-[18px] font-medium cursor-default leading-snug origin-left transition-[transform,color,opacity] duration-500 ease-out ${
                   isActive
-                    ? "text-[22px] font-bold text-white"
+                    ? "scale-[1.22] font-bold text-white"
                     : isPast
-                    ? "text-[18px] font-medium text-[#555]"
-                    : "text-[18px] font-medium text-[#777]"
+                    ? "text-[#555]"
+                    : "text-[#777]"
                 }`}
+                style={isActive ? { willChange: "transform" } : undefined}
               >
                 {line.text}
               </p>
@@ -414,7 +415,7 @@ function LyricsTab() {
         {userScrolled && (
           <button
             onClick={handleResync}
-            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-[#00FFFF] text-black text-[12px] font-bold rounded-full shadow-lg shadow-black/40 hover:brightness-110 active:scale-95 transition-all animate-fadeIn"
+            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 bg-[#00FFFF] text-black text-[12px] font-bold rounded-full shadow-lg shadow-black/40 hover:brightness-110 active:scale-95 transition-[filter,transform] duration-150 animate-fadeIn"
           >
             <Mic2 size={14} />
             Sync lyrics
@@ -555,7 +556,7 @@ function TrackRow({
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer group transition-colors ${
+      className={`flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer group transition-[background-color] duration-150 ${
         isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
       } ${dimmed ? "opacity-50" : ""}`}
     >
@@ -567,16 +568,10 @@ function TrackRow({
         />
         {isActive && isPlaying && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <div className="flex items-center gap-[2px]">
-              <span className="w-[2px] h-2.5 bg-[#00FFFF] rounded-full animate-pulse" />
-              <span
-                className="w-[2px] h-3.5 bg-[#00FFFF] rounded-full animate-pulse"
-                style={{ animationDelay: "0.15s" }}
-              />
-              <span
-                className="w-[2px] h-2 bg-[#00FFFF] rounded-full animate-pulse"
-                style={{ animationDelay: "0.3s" }}
-              />
+            <div className="flex items-end gap-[2px] h-3.5">
+              <span className="w-[2px] h-full bg-[#00FFFF] rounded-full playing-bar" />
+              <span className="w-[2px] h-full bg-[#00FFFF] rounded-full playing-bar" style={{ animationDelay: "0.2s" }} />
+              <span className="w-[2px] h-full bg-[#00FFFF] rounded-full playing-bar" style={{ animationDelay: "0.4s" }} />
             </div>
           </div>
         )}
@@ -600,7 +595,7 @@ function TrackRow({
               e.stopPropagation();
               onAdd();
             }}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/10 transition-all"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/10 transition-colors duration-150"
             title="Add to queue"
           >
             <Plus size={14} />
@@ -612,7 +607,7 @@ function TrackRow({
               e.stopPropagation();
               onRemove();
             }}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/10 transition-all"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/10 transition-colors duration-150"
             title="Remove"
           >
             <X size={14} />
@@ -647,7 +642,7 @@ export default function NowPlayingDrawer() {
     <div className="fixed inset-0 bottom-[90px] z-40 flex flex-col">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80"
         onClick={() => setDrawerOpen(false)}
       />
 
@@ -681,7 +676,7 @@ export default function NowPlayingDrawer() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-medium transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-medium transition-colors duration-150 ${
                     activeTab === tab.id
                       ? "bg-white/12 text-white"
                       : "text-[#a6a6a6] hover:text-white hover:bg-white/5"
@@ -694,7 +689,7 @@ export default function NowPlayingDrawer() {
             </div>
             <button
               onClick={() => setDrawerOpen(false)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/8 transition-all shrink-0 ml-2"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[#a6a6a6] hover:text-white hover:bg-white/8 transition-colors duration-150 shrink-0 ml-2"
             >
               <X size={18} />
             </button>

@@ -121,7 +121,7 @@ export default function Sidebar() {
 
   return (
     <div
-      className={`sidebar h-full bg-[#0b0b0b] flex flex-col border-r border-white/[0.06] transition-all duration-300 ease-in-out flex-shrink-0 ${
+      className={`sidebar h-full bg-[#0b0b0b] flex flex-col border-r border-white/[0.06] transition-[width,min-width,max-width] duration-300 ease-in-out flex-shrink-0 ${
         isCollapsed ? "w-[60px]" : "w-[240px] min-w-[200px] max-w-[300px]"
       }`}
     >
@@ -129,7 +129,7 @@ export default function Sidebar() {
       <nav className="px-2 pt-3 pb-1 space-y-0.5">
         <button
           onClick={navigateHome}
-          className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-md transition-all duration-150 group ${
+          className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-md transition-colors duration-150 group ${
             currentView.type === "home"
               ? "text-white bg-white/[0.08]"
               : "text-[#b3b3b3] hover:text-white hover:bg-white/[0.06]"
@@ -141,7 +141,7 @@ export default function Sidebar() {
         </button>
         <a
           href="#"
-          className={`flex items-center gap-3 px-2.5 py-2 text-[#b3b3b3] hover:text-white hover:bg-white/[0.06] rounded-md transition-all duration-150 group ${
+          className={`flex items-center gap-3 px-2.5 py-2 text-[#b3b3b3] hover:text-white hover:bg-white/[0.06] rounded-md transition-colors duration-150 group ${
             isCollapsed ? "justify-center px-0" : ""
           }`}
           title="Explore"
@@ -305,7 +305,7 @@ export default function Sidebar() {
               setIsCollapsed(false);
               setTimeout(() => searchInputRef.current?.focus(), 300);
             }}
-            className="w-full flex items-center justify-center py-2 text-[#b3b3b3] hover:text-white hover:bg-white/[0.06] rounded-md transition-all duration-150"
+            className="w-full flex items-center justify-center py-2 text-[#b3b3b3] hover:text-white hover:bg-white/[0.06] rounded-md transition-colors duration-150"
             title="Search"
           >
             <Search size={20} strokeWidth={2} />
@@ -371,7 +371,7 @@ export default function Sidebar() {
               {/* Loved Tracks - pinned at top */}
               <button
                 onClick={navigateToFavorites}
-                className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-md transition-all duration-150 group ${
+                className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-md transition-colors duration-150 group ${
                   currentView.type === "favorites"
                     ? "bg-white/[0.08]"
                     : "hover:bg-white/[0.06]"
@@ -402,7 +402,7 @@ export default function Sidebar() {
                 <button
                   key={playlist.uuid}
                   onClick={() => handlePlaylistClick(playlist)}
-                  className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-md transition-all duration-150 group ${
+                  className={`w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-md transition-colors duration-150 group ${
                     currentView.type === "playlist" &&
                     currentView.playlistId === playlist.uuid
                       ? "bg-white/[0.08]"

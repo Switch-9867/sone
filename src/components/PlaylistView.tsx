@@ -148,7 +148,7 @@ export default function PlaylistView({
 
   return (
     <div className="flex-1 bg-gradient-to-b from-[#1a1a1a] to-[#121212] overflow-y-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent">
-      <div className="sticky top-0 z-20 px-6 py-4 flex items-center bg-[#121212]/50 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 px-6 py-4 flex items-center bg-[#121212]">
         <button
           onClick={onBack}
           className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-[#a6a6a6] hover:text-white transition-colors"
@@ -195,7 +195,7 @@ export default function PlaylistView({
       <div className="px-8 py-5 flex items-center gap-5">
         <button
           onClick={handlePlayAll}
-          className="w-14 h-14 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl hover:scale-105 hover:brightness-110 transition-all"
+          className="w-14 h-14 bg-[#00FFFF] rounded-full flex items-center justify-center shadow-xl hover:scale-105 hover:brightness-110 transition-[transform,filter] duration-150"
         >
           {playlistPlaying ? (
             <Pause size={24} fill="black" className="text-black" />
@@ -230,16 +230,10 @@ export default function PlaylistView({
               >
                 <div className="flex items-center justify-end">
                   {playing ? (
-                    <div className="flex items-center gap-[3px]">
-                      <span className="w-[3px] h-3 bg-[#00FFFF] rounded-full animate-pulse" />
-                      <span
-                        className="w-[3px] h-4 bg-[#00FFFF] rounded-full animate-pulse"
-                        style={{ animationDelay: "0.15s" }}
-                      />
-                      <span
-                        className="w-[3px] h-2.5 bg-[#00FFFF] rounded-full animate-pulse"
-                        style={{ animationDelay: "0.3s" }}
-                      />
+                    <div className="flex items-end gap-[3px] h-4">
+                      <span className="w-[3px] h-full bg-[#00FFFF] rounded-full playing-bar" />
+                      <span className="w-[3px] h-full bg-[#00FFFF] rounded-full playing-bar" style={{ animationDelay: "0.2s" }} />
+                      <span className="w-[3px] h-full bg-[#00FFFF] rounded-full playing-bar" style={{ animationDelay: "0.4s" }} />
                     </div>
                   ) : (
                     <>
