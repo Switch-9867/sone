@@ -1,0 +1,522 @@
+import { Plus, Search, X, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useAudioContext } from "../contexts/AudioContext";
+import { type Playlist, getTidalImageUrl } from "../hooks/useAudio";
+import TidalImage from "./TidalImage";
+
+// ─── Public API ────────────────────────────────────────────────
+
+interface AddToPlaylistMenuProps {
+  trackId: number;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}
+
+// ─── Recent-playlist persistence ───────────────────────────────
+
+const RECENT_PLAYLISTS_KEY = "tide-vibe.recent-playlists.v1";
+const MAX_RECENT = 8;
+const DESC_MAX_LEN = 500;
+
+function getRecentPlaylistIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_PLAYLISTS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function pushRecentPlaylistId(playlistId: string) {
+  const ids = getRecentPlaylistIds().filter((id) => id !== playlistId);
+  ids.unshift(playlistId);
+  if (ids.length > MAX_RECENT) ids.length = MAX_RECENT;
+  try {
+    localStorage.setItem(RECENT_PLAYLISTS_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
+// ─── Create-playlist modal ─────────────────────────────────────
+
+function CreatePlaylistModal({
+  trackId,
+  onClose,
+  onCreated,
+}: {
+  trackId: number;
+  onClose: () => void;
+  onCreated: (playlist: Playlist) => void;
+}) {
+  const { createPlaylist, addTrackToPlaylist } = useAudioContext();
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus title input
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const handleSave = useCallback(async () => {
+    if (!title.trim() || saving) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const playlist = await createPlaylist(title.trim(), description.trim());
+      await addTrackToPlaylist(playlist.uuid, trackId);
+      pushRecentPlaylistId(playlist.uuid);
+      onCreated(playlist);
+    } catch {
+      setError("Failed to create playlist");
+      setSaving(false);
+    }
+  }, [title, description, saving, createPlaylist, addTrackToPlaylist, trackId, onCreated]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center"
+      style={{ animation: "fadeIn 0.15s ease-out" }}
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal panel */}
+      <div
+        className="relative w-full max-w-[520px] bg-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden mx-4"
+        style={{ animation: "slideUp 0.2s ease-out" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <h2 className="text-[18px] font-semibold text-white">
+            Create playlist
+          </h2>
+          <button
+            className="p-1 text-[#a6a6a6] hover:text-white rounded-full transition-colors"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 pb-2 flex flex-col gap-4">
+          {/* Title input */}
+          <div>
+            <input
+              ref={titleRef}
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
+              className="w-full bg-transparent text-white text-[15px] px-4 py-3.5 rounded-lg border border-[#3a3a3a] focus:border-[#666] focus:outline-none placeholder-[#666] transition-colors"
+            />
+          </div>
+
+          {/* Description textarea */}
+          <div>
+            <textarea
+              placeholder="Write a description"
+              value={description}
+              onChange={(e) => {
+                if (e.target.value.length <= DESC_MAX_LEN)
+                  setDescription(e.target.value);
+              }}
+              disabled={saving}
+              rows={4}
+              className="w-full bg-transparent text-white text-[14px] px-4 py-3 rounded-lg border border-[#3a3a3a] focus:border-[#666] focus:outline-none placeholder-[#666] resize-none transition-colors"
+            />
+            <div className="text-right mt-1">
+              <span className="text-[12px] text-[#666]">
+                {description.length}/{DESC_MAX_LEN} characters
+              </span>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p className="text-[13px] text-[#ff6666]">{error}</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end px-6 pt-2 pb-6">
+          <button
+            onClick={handleSave}
+            disabled={!title.trim() || saving}
+            className="px-6 py-2.5 bg-[#00FFFF] text-black text-[14px] font-semibold rounded-full hover:bg-[#00e5e5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {saving && <Loader2 size={16} className="animate-spin" />}
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main context-menu component ───────────────────────────────
+
+export default function AddToPlaylistMenu({
+  trackId,
+  anchorRef,
+  onClose,
+}: AddToPlaylistMenuProps) {
+  const { userPlaylists, addTrackToPlaylist } = useAudioContext();
+
+  const [showAll, setShowAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [addedTo, setAddedTo] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Position the menu relative to the anchor
+  const [position, setPosition] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      const menuWidth = 320;
+      const menuHeight = 420;
+
+      let top = rect.bottom + 6;
+      let left = rect.right - menuWidth;
+
+      // Keep within viewport
+      if (left < 8) left = 8;
+      if (left + menuWidth > window.innerWidth - 8) {
+        left = window.innerWidth - menuWidth - 8;
+      }
+      if (top + menuHeight > window.innerHeight - 8) {
+        top = rect.top - menuHeight - 6;
+      }
+
+      setPosition({ top, left });
+    }
+  }, [anchorRef]);
+
+  // Focus search when showing all
+  useEffect(() => {
+    if (showAll && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [showAll]);
+
+  // Close on click outside (but not when modal is open)
+  useEffect(() => {
+    if (showCreateModal) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose, anchorRef, showCreateModal]);
+
+  // Recent playlists
+  const recentIds = getRecentPlaylistIds();
+  const recentPlaylists = recentIds
+    .map((id) => userPlaylists.find((p) => p.uuid === id))
+    .filter((p): p is Playlist => !!p);
+
+  // Filtered playlists for "show all" view
+  const filteredPlaylists = searchQuery
+    ? userPlaylists.filter((p) =>
+        p.title.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : userPlaylists;
+
+  const handleAddToPlaylist = useCallback(
+    async (playlist: Playlist) => {
+      setError(null);
+      setAddingTo(playlist.uuid);
+      try {
+        await addTrackToPlaylist(playlist.uuid, trackId);
+        pushRecentPlaylistId(playlist.uuid);
+        setAddedTo((prev) => new Set([...prev, playlist.uuid]));
+        setTimeout(onClose, 500);
+      } catch (err: any) {
+        const errStr = String(err);
+        if (errStr.includes("409") || errStr.toLowerCase().includes("dupe")) {
+          setError("Track already in this playlist");
+        } else {
+          setError("Failed to add track");
+        }
+      } finally {
+        setAddingTo(null);
+      }
+    },
+    [addTrackToPlaylist, trackId, onClose]
+  );
+
+  // ── Playlist rows ──
+
+  /** Compact row for the recent section (name + plus icon only) */
+  const CompactPlaylistRow = ({ playlist }: { playlist: Playlist }) => {
+    const isAdding = addingTo === playlist.uuid;
+    const isAdded = addedTo.has(playlist.uuid);
+
+    return (
+      <button
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#ffffff0a] transition-colors text-left group/row"
+        onClick={() => handleAddToPlaylist(playlist)}
+        disabled={isAdding || isAdded}
+      >
+        <span className="text-[14px] text-[#e0e0e0] truncate pr-3 group-hover/row:text-white transition-colors">
+          {playlist.title}
+        </span>
+        <div className="shrink-0 w-5 flex items-center justify-center">
+          {isAdding ? (
+            <Loader2 size={16} className="text-[#a6a6a6] animate-spin" />
+          ) : isAdded ? (
+            <span className="text-[#00FFFF] text-[11px] font-semibold">
+              Added
+            </span>
+          ) : (
+            <Plus
+              size={18}
+              className="text-[#666] group-hover/row:text-white transition-colors"
+            />
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  /** Rich row for the "show all" view (image + title + track count + plus icon) */
+  const DetailedPlaylistRow = ({ playlist }: { playlist: Playlist }) => {
+    const isAdding = addingTo === playlist.uuid;
+    const isAdded = addedTo.has(playlist.uuid);
+
+    return (
+      <button
+        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#ffffff0a] transition-colors text-left group/row"
+        onClick={() => handleAddToPlaylist(playlist)}
+        disabled={isAdding || isAdded}
+      >
+        {/* Thumbnail */}
+        <div className="w-10 h-10 shrink-0 rounded bg-[#282828] overflow-hidden">
+          <TidalImage
+            src={getTidalImageUrl(playlist.image, 160)}
+            alt={playlist.title}
+            type="playlist"
+            className="w-full h-full"
+          />
+        </div>
+
+        {/* Title + track count */}
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[14px] text-[#e0e0e0] truncate group-hover/row:text-white transition-colors leading-snug">
+            {playlist.title}
+          </span>
+          <span className="text-[12px] text-[#666] leading-snug">
+            {playlist.numberOfTracks != null
+              ? `${playlist.numberOfTracks} track${playlist.numberOfTracks !== 1 ? "s" : ""}`
+              : "Playlist"}
+          </span>
+        </div>
+
+        {/* Action */}
+        <div className="shrink-0 w-5 flex items-center justify-center">
+          {isAdding ? (
+            <Loader2 size={16} className="text-[#a6a6a6] animate-spin" />
+          ) : isAdded ? (
+            <span className="text-[#00FFFF] text-[11px] font-semibold">
+              Added
+            </span>
+          ) : (
+            <Plus
+              size={18}
+              className="text-[#666] group-hover/row:text-white transition-colors"
+            />
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  // ── Render ──
+
+  return (
+    <>
+      {/* Context menu */}
+      <div
+        ref={menuRef}
+        className="fixed z-[9999] w-[320px] max-h-[420px] bg-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          top: position.top,
+          left: position.left,
+          animation: "fadeIn 0.12s ease-out",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {showAll ? (
+          /* ── Show-all view ── */
+          <>
+            {/* Search bar */}
+            <div className="px-4 pt-4 pb-2">
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666]"
+                />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  placeholder="Find a playlist"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#2a2a2a] text-white text-[13px] pl-9 pr-8 py-2 rounded-md focus:outline-none placeholder-[#555]"
+                />
+                {searchQuery && (
+                  <button
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#666] hover:text-white"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Back link */}
+            <button
+              className="px-5 py-2 text-[12px] text-[#00FFFF] hover:text-white text-left transition-colors"
+              onClick={() => {
+                setShowAll(false);
+                setSearchQuery("");
+              }}
+            >
+              &larr; Back
+            </button>
+
+            {/* Filtered list */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pb-2">
+              {filteredPlaylists.length === 0 ? (
+                <div className="px-5 py-8 text-center text-[13px] text-[#555]">
+                  {searchQuery ? "No playlists found" : "No playlists yet"}
+                </div>
+              ) : (
+                filteredPlaylists.map((p) => (
+                  <DetailedPlaylistRow key={p.uuid} playlist={p} />
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          /* ── Default view ── */
+          <>
+            {/* Create new playlist */}
+            <button
+              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[#ffffff0a] transition-colors"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <div className="w-8 h-8 rounded-full bg-[#2a2a2a] flex items-center justify-center shrink-0">
+                <Plus size={18} className="text-white" />
+              </div>
+              <span className="text-[15px] text-white font-medium">
+                Create new playlist
+              </span>
+            </button>
+
+            {/* Show all playlists */}
+            <button
+              className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#ffffff0a] transition-colors"
+              onClick={() => setShowAll(true)}
+            >
+              <span className="text-[14px] text-[#a6a6a6] hover:text-white transition-colors">
+                Show all playlists
+              </span>
+            </button>
+
+            {/* RECENT section */}
+            {recentPlaylists.length > 0 ? (
+              <div className="flex flex-col mt-1">
+                <div className="px-5 pt-2 pb-1">
+                  <span className="text-[11px] font-bold text-[#a6a6a6] uppercase tracking-[0.12em]">
+                    Recent
+                  </span>
+                </div>
+                <div className="overflow-y-auto custom-scrollbar max-h-[240px] pb-2">
+                  {recentPlaylists.map((p) => (
+                    <CompactPlaylistRow key={p.uuid} playlist={p} />
+                  ))}
+                </div>
+              </div>
+            ) : userPlaylists.length > 0 ? (
+              <div className="flex flex-col mt-1">
+                <div className="px-5 pt-2 pb-1">
+                  <span className="text-[11px] font-bold text-[#a6a6a6] uppercase tracking-[0.12em]">
+                    Recent
+                  </span>
+                </div>
+                <div className="overflow-y-auto custom-scrollbar max-h-[240px] pb-2">
+                  {userPlaylists.slice(0, MAX_RECENT).map((p) => (
+                    <CompactPlaylistRow key={p.uuid} playlist={p} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {/* Error bar */}
+        {error && (
+          <div className="px-5 py-2.5 bg-[#ff444418] border-t border-[#ff444430]">
+            <span className="text-[12px] text-[#ff6666]">{error}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Create playlist modal (portal-like, rendered above everything) */}
+      {showCreateModal && (
+        <CreatePlaylistModal
+          trackId={trackId}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => {
+            setShowCreateModal(false);
+            onClose();
+          }}
+        />
+      )}
+    </>
+  );
+}

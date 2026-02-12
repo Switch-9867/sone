@@ -300,6 +300,27 @@ fn get_playlist_tracks(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn create_playlist(
+    state: State<AppState>,
+    user_id: u64,
+    title: String,
+    description: String,
+) -> Result<TidalPlaylist, String> {
+    let client = state.tidal_client.lock().map_err(|e| e.to_string())?;
+    client.create_playlist(user_id, &title, &description)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn add_track_to_playlist(
+    state: State<AppState>,
+    playlist_id: String,
+    track_id: u64,
+) -> Result<(), String> {
+    let client = state.tidal_client.lock().map_err(|e| e.to_string())?;
+    client.add_track_to_playlist(&playlist_id, track_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn get_favorite_tracks(
     state: State<AppState>,
     user_id: u64,
@@ -721,6 +742,8 @@ pub fn run() {
             get_user_profile,
             get_user_playlists,
             get_playlist_tracks,
+            create_playlist,
+            add_track_to_playlist,
             get_favorite_tracks,
             get_favorite_track_ids,
             is_track_favorited,

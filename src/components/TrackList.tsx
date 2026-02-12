@@ -1,8 +1,9 @@
 import { Play, Heart, MoreHorizontal, Plus, Loader2 } from "lucide-react";
 import { type Track, getTidalImageUrl } from "../hooks/useAudio";
 import TidalImage from "./TidalImage";
+import AddToPlaylistMenu from "./AddToPlaylistMenu";
 import { useAudioContext } from "../contexts/AudioContext";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 interface TrackListProps {
   tracks: Track[];
@@ -60,6 +61,17 @@ export default function TrackList({
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [playlistMenuTrackId, setPlaylistMenuTrackId] = useState<number | null>(null);
+  const plusButtonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+
+  const handlePlusClick = useCallback((e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    setPlaylistMenuTrackId((prev) => (prev === track.id ? null : track.id));
+  }, []);
+
+  const closePlaylistMenu = useCallback(() => {
+    setPlaylistMenuTrackId(null);
+  }, []);
 
   const toggleFavorite = async (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
@@ -256,13 +268,28 @@ export default function TrackList({
                 >
                   <MoreHorizontal size={18} />
                 </button>
-                <button 
-                  className="p-1.5 text-[#a6a6a6] hover:text-white rounded-full transition-colors"
+                <button
+                  ref={(el) => {
+                    if (el) plusButtonRefs.current.set(track.id, el);
+                    else plusButtonRefs.current.delete(track.id);
+                  }}
+                  className={`p-1.5 rounded-full transition-colors ${
+                    playlistMenuTrackId === track.id
+                      ? "text-[#00FFFF]"
+                      : "text-[#a6a6a6] hover:text-white"
+                  }`}
                   title="Add to playlist"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => handlePlusClick(e, track)}
                 >
                   <Plus size={18} />
                 </button>
+                {playlistMenuTrackId === track.id && (
+                  <AddToPlaylistMenu
+                    trackId={track.id}
+                    anchorRef={{ current: plusButtonRefs.current.get(track.id) ?? null }}
+                    onClose={closePlaylistMenu}
+                  />
+                )}
                 <button 
                   className={`p-1.5 rounded-full transition-colors ${isFav ? 'text-[#00FFFF]' : 'text-[#a6a6a6] hover:text-white'}`}
                   title={isFav ? "Remove from favorites" : "Add to favorites"}

@@ -555,6 +555,41 @@ export function useAudio() {
     }
   };
 
+  const createPlaylist = useCallback(
+    async (title: string, description: string = ""): Promise<Playlist> => {
+      if (!authTokens?.user_id) throw new Error("Not authenticated");
+      try {
+        const playlist = await invoke<Playlist>("create_playlist", {
+          userId: authTokens.user_id,
+          title,
+          description,
+        });
+        // Refresh user playlists after creation
+        setUserPlaylists((prev) => [playlist, ...prev]);
+        return playlist;
+      } catch (error: any) {
+        console.error("Failed to create playlist:", error);
+        throw error;
+      }
+    },
+    [authTokens?.user_id]
+  );
+
+  const addTrackToPlaylist = useCallback(
+    async (playlistId: string, trackId: number): Promise<void> => {
+      try {
+        await invoke("add_track_to_playlist", {
+          playlistId,
+          trackId: trackId,
+        });
+      } catch (error: any) {
+        console.error("Failed to add track to playlist:", error);
+        throw error;
+      }
+    },
+    []
+  );
+
   const getPlaylistTracks = useCallback(
     async (playlistId: string): Promise<Track[]> => {
       try {
@@ -1133,6 +1168,8 @@ export function useAudio() {
     logout,
     getUserPlaylists,
     getPlaylistTracks,
+    createPlaylist,
+    addTrackToPlaylist,
     getAlbumDetail,
     getAlbumTracks,
     getFavoriteTracks,
