@@ -5,23 +5,6 @@ use std::time::Duration;
 
 const TIDAL_AUTH_URL: &str = "https://auth.tidal.com/v1/oauth2";
 const TIDAL_API_URL: &str = "https://api.tidal.com/v1";
-// Device-code credentials (from python-tidal) – limited to LOSSLESS quality
-const CLIENT_ID: &str = "REDACTED_CLIENT_ID";
-const CLIENT_SECRET: &str = "REDACTED_CLIENT_SECRET";
-// PKCE credentials (from python-tidal) – enables HI_RES_LOSSLESS (24-bit)
-const CLIENT_ID_PKCE: &str = "REDACTED_CLIENT_ID_PKCE";
-const CLIENT_SECRET_PKCE: &str = "REDACTED_CLIENT_SECRET_PKCE";
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DeviceCode {
-    pub device_code: String,
-    pub user_code: String,
-    pub verification_uri: String,
-    pub verification_uri_complete: String,
-    pub expires_in: u64,
-    pub interval: u64,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AuthTokens {
@@ -234,7 +217,8 @@ pub struct HomePageResponse {
 pub struct TidalClient {
     client: Client,
     pub tokens: Option<AuthTokens>,
-    pub is_pkce: bool,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 impl TidalClient {
@@ -245,82 +229,28 @@ impl TidalClient {
                 .build()
                 .unwrap(),
             tokens: None,
-            is_pkce: false,
+            client_id: String::new(),
+            client_secret: String::new(),
         }
     }
 
-    pub fn start_device_auth(&self) -> Result<DeviceCode, String> {
-        let params = [
-            ("client_id", CLIENT_ID),
-            ("scope", "r_usr w_usr w_sub"),
-        ];
-
-        let response = self
-            .client
-            .post(format!("{}/device_authorization", TIDAL_AUTH_URL))
-            .form(&params)
-            .send()
-            .map_err(|e| format!("Failed to start auth: {}", e))?;
-
-        let status = response.status();
-        let body = response.text().unwrap_or_default();
-        
-        if !status.is_success() {
-            return Err(format!("Auth request failed ({}): {}", status, body));
-        }
-
-        serde_json::from_str::<DeviceCode>(&body)
-            .map_err(|e| format!("Failed to parse response: {} - Body: {}", e, body))
-    }
-
-    pub fn poll_for_token(&mut self, device_code: &str) -> Result<AuthTokens, String> {
-        let params = [
-            ("client_id", CLIENT_ID),
-            ("client_secret", CLIENT_SECRET),
-            ("device_code", device_code),
-            ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
-            ("scope", "r_usr w_usr w_sub"),
-        ];
-
-        let response = self
-            .client
-            .post(format!("{}/token", TIDAL_AUTH_URL))
-            .form(&params)
-            .send()
-            .map_err(|e| format!("Failed to poll token: {}", e))?;
-
-        let status = response.status();
-        let body = response.text().unwrap_or_default();
-
-        if !status.is_success() {
-            // Check if it's still pending
-            if body.contains("authorization_pending") {
-                return Err("Pending".to_string());
-            }
-            return Err(format!("Token request failed ({}): {}", status, body));
-        }
-
-        let tokens = serde_json::from_str::<AuthTokens>(&body)
-            .map_err(|e| format!("Failed to parse tokens: {} - Body: {}", e, body))?;
-
-        self.tokens = Some(tokens.clone());
-        Ok(tokens)
+    pub fn set_credentials(&mut self, client_id: &str, client_secret: &str) {
+        self.client_id = client_id.to_string();
+        self.client_secret = client_secret.to_string();
     }
 
     pub fn refresh_token(&mut self) -> Result<AuthTokens, String> {
+        if self.client_id.is_empty() || self.client_secret.is_empty() {
+            return Err("Client credentials not configured".to_string());
+        }
+
         let current_tokens = self.tokens.as_ref().ok_or("Not authenticated")?;
         let refresh_tok = current_tokens.refresh_token.clone();
         let old_user_id = current_tokens.user_id;
 
-        let (cid, csec) = if self.is_pkce {
-            (CLIENT_ID_PKCE, CLIENT_SECRET_PKCE)
-        } else {
-            (CLIENT_ID, CLIENT_SECRET)
-        };
-
         let params = [
-            ("client_id", cid),
-            ("client_secret", csec),
+            ("client_id", self.client_id.as_str()),
+            ("client_secret", self.client_secret.as_str()),
             ("refresh_token", refresh_tok.as_str()),
             ("grant_type", "refresh_token"),
             ("scope", "r_usr w_usr w_sub"),
@@ -375,12 +305,16 @@ impl TidalClient {
         redirect_uri: &str,
         client_unique_key: &str,
     ) -> Result<AuthTokens, String> {
+        if self.client_id.is_empty() {
+            return Err("Client ID not configured".to_string());
+        }
+
         let response = self
             .client
             .post(format!("{}/token", TIDAL_AUTH_URL))
             .form(&[
                 ("code", code),
-                ("client_id", CLIENT_ID_PKCE),
+                ("client_id", self.client_id.as_str()),
                 ("grant_type", "authorization_code"),
                 ("redirect_uri", redirect_uri),
                 ("scope", "r_usr+w_usr+w_sub"),
@@ -401,7 +335,6 @@ impl TidalClient {
             .map_err(|e| format!("Failed to parse PKCE tokens: {} - Body: {}", e, body))?;
 
         self.tokens = Some(tokens.clone());
-        self.is_pkce = true;
         Ok(tokens)
     }
 

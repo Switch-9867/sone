@@ -15,10 +15,6 @@ export default function FavoritesView({ onBack }: FavoritesViewProps) {
     getFavoriteTracks,
     playTrack,
     setQueueTracks,
-    currentTrack,
-    isPlaying,
-    pauseTrack,
-    resumeTrack,
   } = useAudioContext();
 
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -97,27 +93,6 @@ export default function FavoritesView({ onBack }: FavoritesViewProps) {
     }
   };
 
-  // !TODO: Remove this later if not used anymore
-  const handlePlayAll = async () => {
-    if (tracks.length === 0) return;
-
-    if (currentTrack && isPlaying) {
-      await pauseTrack();
-      return;
-    }
-
-    if (currentTrack && !isPlaying) {
-      await resumeTrack();
-      return;
-    }
-
-    try {
-      setQueueTracks(tracks.slice(1));
-      await playTrack(tracks[0]);
-    } catch (err) {
-      console.error("Failed to play all:", err);
-    }
-  };
 
   if (loading) {
     return (

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tidal_api::{AuthTokens, DeviceCode, HomePageResponse, PaginatedTracks, StreamInfo, TidalAlbumDetail, TidalArtistDetail, TidalClient, TidalCredit, TidalLyrics, TidalPlaylist, TidalSearchResults, TidalTrack};
+use tidal_api::{AuthTokens, HomePageResponse, PaginatedTracks, StreamInfo, TidalAlbumDetail, TidalArtistDetail, TidalClient, TidalCredit, TidalLyrics, TidalPlaylist, TidalSearchResults, TidalTrack};
 
 
 #[tauri::command]
@@ -25,7 +25,9 @@ struct Settings {
     volume: f32,
     last_track_id: Option<u64>,
     #[serde(default)]
-    is_pkce: bool,
+    client_id: String,
+    #[serde(default)]
+    client_secret: String,
 }
 
 const CACHE_TTL_SECS: u64 = 12 * 60 * 60; // 12 hours
@@ -120,45 +122,32 @@ impl AppState {
 // ==================== Tidal Authentication ====================
 
 #[tauri::command]
-fn start_tidal_auth(state: State<AppState>) -> Result<DeviceCode, String> {
-    let client = state.tidal_client.lock().map_err(|e| e.to_string())?;
-    client.start_device_auth()
-}
-
-#[tauri::command(rename_all = "camelCase")]
-fn poll_tidal_auth(state: State<AppState>, device_code: String) -> Result<AuthTokens, String> {
-    let mut client = state.tidal_client.lock().map_err(|e| e.to_string())?;
-    let tokens = client.poll_for_token(&device_code)?;
-
-    // Save tokens to settings
-    let settings = Settings {
-        auth_tokens: Some(tokens.clone()),
-        volume: 1.0,
-        last_track_id: None,
-        is_pkce: false,
-    };
-    state.save_settings(&settings)?;
-
-    Ok(tokens)
-}
-
-#[tauri::command]
 fn load_saved_auth(state: State<AppState>) -> Result<Option<AuthTokens>, String> {
     println!("DEBUG: Loading saved auth from {:?}", state.settings_path);
     if let Some(settings) = state.load_settings() {
-        println!("DEBUG: Settings loaded, auth_tokens present: {}, is_pkce: {}", settings.auth_tokens.is_some(), settings.is_pkce);
+        println!("DEBUG: Settings loaded, auth_tokens present: {}, has_credentials: {}", settings.auth_tokens.is_some(), !settings.client_id.is_empty());
         if let Some(tokens) = settings.auth_tokens {
-            // Restore tokens to client
+            // Restore tokens and credentials to client
             let mut client = state.tidal_client.lock().map_err(|e| e.to_string())?;
             client.tokens = Some(tokens.clone());
-            client.is_pkce = settings.is_pkce;
-            println!("DEBUG: Tokens restored to client, user_id: {:?}, is_pkce: {}", tokens.user_id, settings.is_pkce);
+            client.set_credentials(&settings.client_id, &settings.client_secret);
+            println!("DEBUG: Tokens restored to client, user_id: {:?}", tokens.user_id);
             return Ok(Some(tokens));
         }
     } else {
         println!("DEBUG: No settings file found");
     }
     Ok(None)
+}
+
+/// Returns saved client credentials so the Login page can pre-fill them.
+#[tauri::command]
+fn get_saved_credentials(state: State<AppState>) -> Result<(String, String), String> {
+    if let Some(settings) = state.load_settings() {
+        Ok((settings.client_id, settings.client_secret))
+    } else {
+        Ok((String::new(), String::new()))
+    }
 }
 
 #[tauri::command]
@@ -171,7 +160,8 @@ fn refresh_tidal_auth(state: State<AppState>) -> Result<AuthTokens, String> {
         auth_tokens: None,
         volume: 1.0,
         last_track_id: None,
-        is_pkce: client.is_pkce,
+        client_id: client.client_id.clone(),
+        client_secret: client.client_secret.clone(),
     });
     settings.auth_tokens = Some(new_tokens.clone());
     state.save_settings(&settings)?;
@@ -189,8 +179,12 @@ struct PkceAuthParams {
     client_unique_key: String,
 }
 
-#[tauri::command]
-fn start_pkce_auth() -> Result<PkceAuthParams, String> {
+#[tauri::command(rename_all = "camelCase")]
+fn start_pkce_auth(client_id: String) -> Result<PkceAuthParams, String> {
+    if client_id.is_empty() {
+        return Err("Client ID is required".to_string());
+    }
+
     // Generate PKCE values
     let mut rng = rand::rng();
     let random_bytes: [u8; 32] = rng.random();
@@ -205,8 +199,9 @@ fn start_pkce_auth() -> Result<PkceAuthParams, String> {
     let client_unique_key = format!("{:016x}", rng.random::<u64>());
 
     let authorize_url = format!(
-        "https://login.tidal.com/authorize?response_type=code&redirect_uri={}&client_id=REDACTED_CLIENT_ID_PKCE&lang=EN&appMode=android&client_unique_key={}&code_challenge={}&code_challenge_method=S256&restrict_signup=true",
+        "https://login.tidal.com/authorize?response_type=code&redirect_uri={}&client_id={}&lang=EN&appMode=android&client_unique_key={}&code_challenge={}&code_challenge_method=S256&restrict_signup=true",
         "https%3A%2F%2Ftidal.com%2Fandroid%2Flogin%2Fauth",
+        client_id,
         client_unique_key,
         code_challenge,
     );
@@ -224,19 +219,24 @@ fn complete_pkce_auth(
     code: String,
     code_verifier: String,
     client_unique_key: String,
+    client_id: String,
+    client_secret: String,
 ) -> Result<AuthTokens, String> {
     let mut client = state.tidal_client.lock().map_err(|e| e.to_string())?;
+    client.set_credentials(&client_id, &client_secret);
     let tokens = client.exchange_pkce_code(&code, &code_verifier, PKCE_REDIRECT_URI, &client_unique_key)?;
 
-    // Save tokens and mark as PKCE session
+    // Save tokens and credentials
     let mut settings = state.load_settings().unwrap_or(Settings {
         auth_tokens: None,
         volume: 1.0,
         last_track_id: None,
-        is_pkce: false,
+        client_id: String::new(),
+        client_secret: String::new(),
     });
     settings.auth_tokens = Some(tokens.clone());
-    settings.is_pkce = true;
+    settings.client_id = client_id;
+    settings.client_secret = client_secret;
     state.save_settings(&settings)?;
 
     Ok(tokens)
@@ -244,13 +244,18 @@ fn complete_pkce_auth(
 
 #[tauri::command]
 fn logout(state: State<AppState>) -> Result<(), String> {
-    // Clear tokens
+    // Clear tokens but preserve credentials for next login
     let mut client = state.tidal_client.lock().map_err(|e| e.to_string())?;
     client.tokens = None;
-    client.is_pkce = false;
 
-    // Delete settings file
-    fs::remove_file(&state.settings_path).ok();
+    // Save credentials but clear auth tokens
+    if let Some(mut settings) = state.load_settings() {
+        settings.auth_tokens = None;
+        settings.last_track_id = None;
+        state.save_settings(&settings).ok();
+    } else {
+        fs::remove_file(&state.settings_path).ok();
+    }
 
     // Clear all cached data
     if let Ok(entries) = fs::read_dir(&state.cache_dir) {
@@ -765,9 +770,8 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             greet,
-            start_tidal_auth,
-            poll_tidal_auth,
             load_saved_auth,
+            get_saved_credentials,
             refresh_tidal_auth,
             start_pkce_auth,
             complete_pkce_auth,

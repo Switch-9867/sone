@@ -113,15 +113,6 @@ export interface PkceAuthParams {
   clientUniqueKey: string;
 }
 
-export interface DeviceCode {
-  deviceCode: string;
-  userCode: string;
-  verificationUri: string;
-  verificationUriComplete: string;
-  expiresIn: number;
-  interval: number;
-}
-
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
@@ -476,18 +467,24 @@ export function useAudio() {
     return () => clearInterval(checkInterval);
   }, [isPlaying, currentTrack, queue]);
 
-  const startAuth = async (): Promise<DeviceCode> => {
+  const getSavedCredentials = async (): Promise<{
+    clientId: string;
+    clientSecret: string;
+  }> => {
     try {
-      return await invoke("start_tidal_auth");
+      const [clientId, clientSecret] = await invoke<[string, string]>(
+        "get_saved_credentials"
+      );
+      return { clientId, clientSecret };
     } catch (error) {
-      console.error("Failed to start auth:", error);
-      throw error;
+      console.error("Failed to get saved credentials:", error);
+      return { clientId: "", clientSecret: "" };
     }
   };
 
-  const startPkceAuth = async (): Promise<PkceAuthParams> => {
+  const startPkceAuth = async (clientId: string): Promise<PkceAuthParams> => {
     try {
-      return await invoke<PkceAuthParams>("start_pkce_auth");
+      return await invoke<PkceAuthParams>("start_pkce_auth", { clientId });
     } catch (error) {
       console.error("Failed to start PKCE auth:", error);
       throw error;
@@ -497,13 +494,17 @@ export function useAudio() {
   const completePkceAuth = async (
     code: string,
     codeVerifier: string,
-    clientUniqueKey: string
+    clientUniqueKey: string,
+    clientId: string,
+    clientSecret: string
   ): Promise<AuthTokens> => {
     try {
       const tokens = await invoke<AuthTokens>("complete_pkce_auth", {
         code,
         codeVerifier,
         clientUniqueKey,
+        clientId,
+        clientSecret,
       });
 
       let userId = tokens.user_id;
@@ -521,31 +522,6 @@ export function useAudio() {
       return updatedTokens;
     } catch (error) {
       console.error("Failed to complete PKCE auth:", error);
-      throw error;
-    }
-  };
-
-  const pollAuth = async (deviceCode: string): Promise<AuthTokens> => {
-    try {
-      const tokens = await invoke<AuthTokens>("poll_tidal_auth", {
-        deviceCode: deviceCode,
-      });
-
-      // Get the user ID from session
-      let userId = tokens.user_id;
-      if (!userId) {
-        try {
-          userId = await invoke<number>("get_session_user_id");
-        } catch (e) {
-          console.error("Failed to get user ID:", e);
-        }
-      }
-
-      const updatedTokens = { ...tokens, user_id: userId };
-      setAuthTokens(updatedTokens);
-      setIsAuthenticated(true);
-      return updatedTokens;
-    } catch (error) {
       throw error;
     }
   };
@@ -1281,8 +1257,7 @@ export function useAudio() {
     removeFromQueue,
     playNext,
     playPrevious,
-    startAuth,
-    pollAuth,
+    getSavedCredentials,
     startPkceAuth,
     completePkceAuth,
     logout,
