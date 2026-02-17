@@ -15,6 +15,8 @@ import Login from "./components/Login";
 import { AppInitializer } from "./components/AppInitializer";
 import { useAuth } from "./hooks/useAuth";
 import { useNavigation } from "./hooks/useNavigation";
+import { useAtomValue } from "jotai";
+import { isAuthCheckingAtom } from "./atoms/auth";
 import { ToastProvider } from "./contexts/ToastContext";
 import { useTheme } from "./hooks/useTheme";
 import "./App.css";
@@ -75,7 +77,16 @@ function useZoom() {
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+  const isAuthChecking = useAtomValue(isAuthCheckingAtom);
   const { currentView, navigateHome, navigateToExplore } = useNavigation();
+
+  if (isAuthChecking) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-th-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-th-accent border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Login />;

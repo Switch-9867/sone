@@ -16,6 +16,7 @@ import { listen } from "@tauri-apps/api/event";
 // Atoms — write-only setters (no re-render from reading)
 import {
   isAuthenticatedAtom,
+  isAuthCheckingAtom,
   authTokensAtom,
   userNameAtom,
 } from "../atoms/auth";
@@ -55,6 +56,7 @@ export function AppInitializer() {
 
   // ---- Auth atom setters (useSetAtom = write-only, no subscribe) ----
   const setIsAuthenticated = useSetAtom(isAuthenticatedAtom);
+  const setIsAuthChecking = useSetAtom(isAuthCheckingAtom);
   const setAuthTokens = useSetAtom(authTokensAtom);
   const setUserName = useSetAtom(userNameAtom);
   const setUserPlaylists = useSetAtom(userPlaylistsAtom);
@@ -90,7 +92,10 @@ export function AppInitializer() {
     const loadAuth = async () => {
       try {
         const tokens = await invoke<AuthTokens | null>("load_saved_auth");
-        if (!tokens) return;
+        if (!tokens) {
+          setIsAuthChecking(false);
+          return;
+        }
 
         let userId = tokens.user_id;
         if (!userId) {
@@ -104,6 +109,7 @@ export function AppInitializer() {
         let activeTokens = { ...tokens, user_id: userId };
         setAuthTokens(activeTokens);
         setIsAuthenticated(true);
+        setIsAuthChecking(false); // show home immediately, playlists load in background
 
         if (!userId) return;
 
@@ -180,6 +186,7 @@ export function AppInitializer() {
         }
       } catch (err) {
         console.error("Failed to load saved auth:", err);
+        setIsAuthChecking(false);
       }
     };
 
