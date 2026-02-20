@@ -72,7 +72,14 @@ export default function MediaCard({
           <>
             {isArtist ? (
               /* Artist: full dark overlay with centered white play icon */
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div
+                className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onPlay) onPlay(e);
+                  else onClick();
+                }}
+              >
                 <Play size={28} fill="white" className="text-white ml-0.5" />
               </div>
             ) : (

@@ -1,4 +1,4 @@
-import { getTidalImageUrl } from "../types";
+import { getTidalImageUrl, type MediaItemType } from "../types";
 
 /**
  * Shared helpers for extracting data from raw Tidal API JSON items.
@@ -119,4 +119,47 @@ export function isMixItem(item: any, sectionType?: string): boolean {
     item.mixType !== undefined ||
     item.mixImages !== undefined
   );
+}
+
+/** Convert a raw API item into a typed MediaItemType for playback/context menu use. */
+export function buildMediaItem(item: any, sectionType?: string): MediaItemType | null {
+  if (isMixItem(item, sectionType)) {
+    const mixId = item.mixId || item.id?.toString();
+    if (mixId) {
+      return {
+        type: "mix",
+        mixId,
+        title: getItemTitle(item),
+        image: getItemImage(item),
+        subtitle: getItemSubtitle(item),
+      };
+    }
+  } else if (isArtistItem(item, sectionType)) {
+    if (item.id) {
+      return {
+        type: "artist",
+        id: item.id,
+        name: item.name || getItemTitle(item),
+        picture: item.picture,
+      };
+    }
+  } else if (item.uuid) {
+    return {
+      type: "playlist",
+      uuid: item.uuid,
+      title: item.title || getItemTitle(item),
+      image: item.squareImage || item.image,
+      creatorName:
+        item.creator?.name || (item.creator?.id === 0 ? "TIDAL" : undefined),
+    };
+  } else if (item.id && !isTrackItem(item, sectionType)) {
+    return {
+      type: "album",
+      id: item.id,
+      title: item.title || getItemTitle(item),
+      cover: item.cover,
+      artistName: item.artist?.name || item.artists?.[0]?.name,
+    };
+  }
+  return null;
 }

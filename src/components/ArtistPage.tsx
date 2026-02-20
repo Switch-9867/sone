@@ -23,7 +23,9 @@ import {
   getItemSubtitle,
   getItemId,
   isMixItem,
+  buildMediaItem,
 } from "../utils/itemHelpers";
+import { useMediaPlay } from "../hooks/useMediaPlay";
 
 interface ArtistPageProps {
   artistId: number;
@@ -585,6 +587,7 @@ function CardScrollSection({
   addFavoriteMix: (id: string) => void;
   removeFavoriteMix: (id: string) => void;
 }) {
+  const playMedia = useMediaPlay();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -693,12 +696,15 @@ function CardScrollSection({
             }
           }
 
+          const mediaItem = buildMediaItem(item, sectionType);
+
           return (
             <MediaCard
               key={getItemId(item)}
               item={item}
               onClick={() => onCardClick(item, sectionType)}
               onContextMenu={(e) => onContextMenu(e, item, sectionType)}
+              onPlay={mediaItem ? (e) => { e.stopPropagation(); playMedia(mediaItem); } : undefined}
               isArtist={isArtistSection}
               showPlayButton
               isFavorited={isFavorited}

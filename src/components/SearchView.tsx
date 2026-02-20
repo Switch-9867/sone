@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
+import { useMediaPlay } from "../hooks/useMediaPlay";
 import { useNavigation } from "../hooks/useNavigation";
 import { useFavorites } from "../hooks/useFavorites";
 import { searchTidal } from "../api/tidal";
@@ -48,6 +49,7 @@ interface SearchViewProps {
 
 export default function SearchView({ query, onBack }: SearchViewProps) {
   const { playTrack, setQueueTracks } = usePlaybackActions();
+  const playMedia = useMediaPlay();
   const {
     navigateToAlbum,
     navigateToPlaylist,
@@ -250,6 +252,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                             numberOfTracks: pl.numberOfTracks,
                           })}
                           onContextMenu={(e) => handlePlaylistContextMenu(e, pl)}
+                          onPlay={(e) => { e.stopPropagation(); playMedia({ type: "playlist", uuid: pl.uuid, title: pl.title, image: pl.image }); }}
                           isFavorited={favoritePlaylistUuids.has(pl.uuid)}
                           onFavoriteToggle={(e) => {
                             e.stopPropagation();
@@ -277,6 +280,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                             artistName: album.artist?.name,
                           })}
                           onContextMenu={(e) => handleAlbumContextMenu(e, album)}
+                          onPlay={(e) => { e.stopPropagation(); playMedia({ type: "album", id: album.id, title: album.title, cover: album.cover }); }}
                           isFavorited={favoriteAlbumIds.has(album.id)}
                           onFavoriteToggle={(e) => {
                             e.stopPropagation();
@@ -388,6 +392,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                       numberOfTracks: pl.numberOfTracks,
                     })}
                     onContextMenu={(e) => handlePlaylistContextMenu(e, pl)}
+                    onPlay={(e) => { e.stopPropagation(); playMedia({ type: "playlist", uuid: pl.uuid, title: pl.title, image: pl.image }); }}
                     isFavorited={favoritePlaylistUuids.has(pl.uuid)}
                     onFavoriteToggle={(e) => {
                       e.stopPropagation();
@@ -412,6 +417,7 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                       artistName: album.artist?.name,
                     })}
                     onContextMenu={(e) => handleAlbumContextMenu(e, album)}
+                    onPlay={(e) => { e.stopPropagation(); playMedia({ type: "album", id: album.id, title: album.title, cover: album.cover }); }}
                     isFavorited={favoriteAlbumIds.has(album.id)}
                     onFavoriteToggle={(e) => {
                       e.stopPropagation();

@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { Play, ChevronLeft, ChevronRight, Music, MoreHorizontal } from "lucide-react";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
+import { useMediaPlay } from "../hooks/useMediaPlay";
 import { useNavigation } from "../hooks/useNavigation";
 import { useFavorites } from "../hooks/useFavorites";
 import {
@@ -18,6 +19,7 @@ import {
   isArtistItem,
   isTrackItem,
   isMixItem,
+  buildMediaItem,
 } from "../utils/itemHelpers";
 
 interface HomeSectionProps {
@@ -26,6 +28,7 @@ interface HomeSectionProps {
 
 export default function HomeSection({ section }: HomeSectionProps) {
   const { playTrack, setQueueTracks } = usePlaybackActions();
+  const playMedia = useMediaPlay();
   const {
     navigateToAlbum,
     navigateToPlaylist,
@@ -51,52 +54,7 @@ export default function HomeSection({ section }: HomeSectionProps) {
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, item: any) => {
-      // Build a MediaItemType from the raw item
-      let mediaItem: MediaItemType | null = null;
-
-      if (isMixItem(item, section.sectionType)) {
-        const mixId = item.mixId || item.id?.toString();
-        if (mixId) {
-          mediaItem = {
-            type: "mix",
-            mixId,
-            title: getItemTitle(item),
-            image: getItemImage(item),
-            subtitle: getItemSubtitle(item),
-          };
-        }
-      } else if (isArtistItem(item, section.sectionType)) {
-        const artistId = item.id;
-        if (artistId) {
-          mediaItem = {
-            type: "artist",
-            id: artistId,
-            name: item.name || getItemTitle(item),
-            picture: item.picture,
-          };
-        }
-      } else if (item.uuid) {
-        // Playlist
-        mediaItem = {
-          type: "playlist",
-          uuid: item.uuid,
-          title: item.title || getItemTitle(item),
-          image: item.squareImage || item.image,
-          creatorName:
-            item.creator?.name ||
-            (item.creator?.id === 0 ? "TIDAL" : undefined),
-        };
-      } else if (item.id && !isTrackItem(item, section.sectionType)) {
-        // Album
-        mediaItem = {
-          type: "album",
-          id: item.id,
-          title: item.title || getItemTitle(item),
-          cover: item.cover,
-          artistName: item.artist?.name || item.artists?.[0]?.name,
-        };
-      }
-
+      const mediaItem = buildMediaItem(item, section.sectionType);
       if (mediaItem) {
         e.preventDefault();
         e.stopPropagation();
@@ -298,12 +256,15 @@ export default function HomeSection({ section }: HomeSectionProps) {
             }
           }
 
+          const mediaItem = buildMediaItem(item, section.sectionType);
+
           return (
             <MediaCard
               key={getItemId(item)}
               item={item}
               onClick={() => handleItemClick(item)}
               onContextMenu={(e) => handleContextMenu(e, item)}
+              onPlay={mediaItem ? (e) => { e.stopPropagation(); playMedia(mediaItem); } : undefined}
               isArtist={isArtist}
               isFavorited={isFavorited}
               onFavoriteToggle={onFavoriteToggle}

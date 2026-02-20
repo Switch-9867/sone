@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
+import { useMediaPlay } from "../hooks/useMediaPlay";
 import { useNavigation } from "../hooks/useNavigation";
 import { useFavorites } from "../hooks/useFavorites";
 import { getPageSection, getArtistViewAll } from "../api/tidal";
@@ -15,6 +16,7 @@ import {
   isArtistItem,
   isTrackItem,
   isMixItem,
+  buildMediaItem,
 } from "../utils/itemHelpers";
 
 interface ViewAllPageProps {
@@ -30,6 +32,7 @@ export default function ViewAllPage({
   artistId,
 }: ViewAllPageProps) {
   const { playTrack, setQueueTracks } = usePlaybackActions();
+  const playMedia = useMediaPlay();
   const { navigateToAlbum, navigateToPlaylist, navigateToArtist, navigateToMix } = useNavigation();
   const {
     favoriteAlbumIds, addFavoriteAlbum, removeFavoriteAlbum,
@@ -50,45 +53,7 @@ export default function ViewAllPage({
   } | null>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, item: any) => {
-    let mediaItem: MediaItemType | null = null;
-
-    if (isArtistItem(item)) {
-      mediaItem = {
-        type: "artist",
-        id: item.id,
-        name: item.name || getItemTitle(item),
-        picture: item.picture,
-      };
-    } else if (isMixItem(item)) {
-      const mixId = item.mixId || item.id?.toString();
-      if (mixId) {
-        mediaItem = {
-          type: "mix",
-          mixId,
-          title: getItemTitle(item),
-          image: getItemImage(item),
-          subtitle: getItemSubtitle(item),
-        };
-      }
-    } else if (item.uuid) {
-      mediaItem = {
-        type: "playlist",
-        uuid: item.uuid,
-        title: item.title || getItemTitle(item),
-        image: item.squareImage || item.image,
-        creatorName:
-          item.creator?.name || (item.creator?.id === 0 ? "TIDAL" : undefined),
-      };
-    } else if (item.id && !isTrackItem(item)) {
-      mediaItem = {
-        type: "album",
-        id: item.id,
-        title: item.title || getItemTitle(item),
-        cover: item.cover,
-        artistName: item.artist?.name || item.artists?.[0]?.name,
-      };
-    }
-
+    const mediaItem = buildMediaItem(item);
     if (mediaItem) {
       e.preventDefault();
       e.stopPropagation();
@@ -232,12 +197,14 @@ export default function ViewAllPage({
           <MediaGrid>
             {items.map((item: any) => {
               const favProps = getFavoriteProps(item);
+              const mediaItem = buildMediaItem(item);
               return (
                 <MediaCard
                   key={getItemId(item)}
                   item={item}
                   onClick={() => handleItemClick(item)}
                   onContextMenu={(e) => handleContextMenu(e, item)}
+                  onPlay={!hasArtists && !hasMixes && mediaItem ? (e) => { e.stopPropagation(); playMedia(mediaItem); } : undefined}
                   isArtist={isArtistItem(item) || hasArtists}
                   showPlayButton={!hasArtists && !hasMixes}
                   isFavorited={favProps.isFavorited}
