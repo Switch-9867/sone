@@ -2,12 +2,12 @@ import {
   Play,
   Music,
   Search,
-  MoreHorizontal,
   User,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
 import { useNavigation } from "../hooks/useNavigation";
+import { useFavorites } from "../hooks/useFavorites";
 import { searchTidal } from "../api/tidal";
 import {
   getTidalImageUrl,
@@ -20,6 +20,7 @@ import {
 } from "../types";
 import TidalImage from "./TidalImage";
 import MediaContextMenu from "./MediaContextMenu";
+import MediaCard from "./MediaCard";
 import ReusableTrackList from "./TrackList";
 import { SearchPageSkeleton } from "./PageSkeleton";
 
@@ -52,6 +53,11 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
     navigateToPlaylist,
     navigateToArtist,
   } = useNavigation();
+
+  const {
+    favoriteAlbumIds, addFavoriteAlbum, removeFavoriteAlbum,
+    favoritePlaylistUuids, addFavoritePlaylist, removeFavoritePlaylist,
+  } = useFavorites();
 
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,6 +100,23 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
           image: pl.image,
           creatorName:
             pl.creator?.name || (pl.creator?.id === 0 ? "TIDAL" : undefined),
+        },
+        position: { x: e.clientX, y: e.clientY },
+      });
+    },
+    []
+  );
+
+  const handleArtistContextMenu = useCallback(
+    (e: React.MouseEvent, artist: { id: number; name: string; picture?: string }) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({
+        item: {
+          type: "artist",
+          id: artist.id,
+          name: artist.name,
+          picture: artist.picture,
         },
         position: { x: e.clientX, y: e.clientY },
       });
@@ -214,11 +237,28 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                     <h2 className="text-[16px] font-bold text-white mb-3">
                       Playlists
                     </h2>
-                    <PlaylistGrid
-                      playlists={results.playlists.slice(0, 6)}
-                      onPlaylistClick={navigateToPlaylist}
-                      onContextMenu={handlePlaylistContextMenu}
-                    />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                      {results.playlists.slice(0, 6).map((pl) => (
+                        <MediaCard
+                          key={pl.uuid}
+                          item={pl}
+                          onClick={() => navigateToPlaylist(pl.uuid, {
+                            title: pl.title,
+                            image: pl.image,
+                            description: pl.description,
+                            creatorName: pl.creator?.name || (pl.creator?.id === 0 ? "TIDAL" : undefined),
+                            numberOfTracks: pl.numberOfTracks,
+                          })}
+                          onContextMenu={(e) => handlePlaylistContextMenu(e, pl)}
+                          isFavorited={favoritePlaylistUuids.has(pl.uuid)}
+                          onFavoriteToggle={(e) => {
+                            e.stopPropagation();
+                            if (favoritePlaylistUuids.has(pl.uuid)) removeFavoritePlaylist(pl.uuid);
+                            else addFavoritePlaylist(pl.uuid, pl);
+                          }}
+                        />
+                      ))}
+                    </div>
                   </section>
                 )}
                 {results.albums.length > 0 && (
@@ -226,11 +266,26 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                     <h2 className="text-[16px] font-bold text-white mb-3">
                       Albums
                     </h2>
-                    <AlbumGrid
-                      albums={results.albums.slice(0, 6)}
-                      onAlbumClick={navigateToAlbum}
-                      onContextMenu={handleAlbumContextMenu}
-                    />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                      {results.albums.slice(0, 6).map((album) => (
+                        <MediaCard
+                          key={album.id}
+                          item={album}
+                          onClick={() => navigateToAlbum(album.id, {
+                            title: album.title,
+                            cover: album.cover,
+                            artistName: album.artist?.name,
+                          })}
+                          onContextMenu={(e) => handleAlbumContextMenu(e, album)}
+                          isFavorited={favoriteAlbumIds.has(album.id)}
+                          onFavoriteToggle={(e) => {
+                            e.stopPropagation();
+                            if (favoriteAlbumIds.has(album.id)) removeFavoriteAlbum(album.id);
+                            else addFavoriteAlbum(album.id, album);
+                          }}
+                        />
+                      ))}
+                    </div>
                   </section>
                 )}
                 {results.artists.length > 0 && (
@@ -238,15 +293,21 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
                     <h2 className="text-[16px] font-bold text-white mb-3">
                       Artists
                     </h2>
-                    <ArtistGrid
-                      artists={results.artists.slice(0, 6)}
-                      onArtistClick={(artist) =>
-                        navigateToArtist(artist.id, {
-                          name: artist.name,
-                          picture: artist.picture,
-                        })
-                      }
-                    />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                      {results.artists.slice(0, 6).map((artist) => (
+                        <MediaCard
+                          key={artist.id}
+                          item={artist}
+                          onClick={() => navigateToArtist(artist.id, {
+                            name: artist.name,
+                            picture: artist.picture,
+                          })}
+                          onContextMenu={(e) => handleArtistContextMenu(e, artist)}
+                          isArtist
+                          showPlayButton={false}
+                        />
+                      ))}
+                    </div>
                   </section>
                 )}
               </div>
@@ -314,36 +375,71 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
 
             {/* Playlists tab */}
             {activeTab === "playlists" && results.playlists.length > 0 && (
-              <PlaylistGrid
-                playlists={results.playlists}
-                onPlaylistClick={navigateToPlaylist}
-                onContextMenu={handlePlaylistContextMenu}
-                large
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                {results.playlists.map((pl) => (
+                  <MediaCard
+                    key={pl.uuid}
+                    item={pl}
+                    onClick={() => navigateToPlaylist(pl.uuid, {
+                      title: pl.title,
+                      image: pl.image,
+                      description: pl.description,
+                      creatorName: pl.creator?.name || (pl.creator?.id === 0 ? "TIDAL" : undefined),
+                      numberOfTracks: pl.numberOfTracks,
+                    })}
+                    onContextMenu={(e) => handlePlaylistContextMenu(e, pl)}
+                    isFavorited={favoritePlaylistUuids.has(pl.uuid)}
+                    onFavoriteToggle={(e) => {
+                      e.stopPropagation();
+                      if (favoritePlaylistUuids.has(pl.uuid)) removeFavoritePlaylist(pl.uuid);
+                      else addFavoritePlaylist(pl.uuid, pl);
+                    }}
+                  />
+                ))}
+              </div>
             )}
 
             {/* Albums tab */}
             {activeTab === "albums" && results.albums.length > 0 && (
-              <AlbumGrid
-                albums={results.albums}
-                onAlbumClick={navigateToAlbum}
-                onContextMenu={handleAlbumContextMenu}
-                large
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                {results.albums.map((album) => (
+                  <MediaCard
+                    key={album.id}
+                    item={album}
+                    onClick={() => navigateToAlbum(album.id, {
+                      title: album.title,
+                      cover: album.cover,
+                      artistName: album.artist?.name,
+                    })}
+                    onContextMenu={(e) => handleAlbumContextMenu(e, album)}
+                    isFavorited={favoriteAlbumIds.has(album.id)}
+                    onFavoriteToggle={(e) => {
+                      e.stopPropagation();
+                      if (favoriteAlbumIds.has(album.id)) removeFavoriteAlbum(album.id);
+                      else addFavoriteAlbum(album.id, album);
+                    }}
+                  />
+                ))}
+              </div>
             )}
 
             {/* Artists tab */}
             {activeTab === "artists" && results.artists.length > 0 && (
-              <ArtistGrid
-                artists={results.artists}
-                onArtistClick={(artist) =>
-                  navigateToArtist(artist.id, {
-                    name: artist.name,
-                    picture: artist.picture,
-                  })
-                }
-                large
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                {results.artists.map((artist) => (
+                  <MediaCard
+                    key={artist.id}
+                    item={artist}
+                    onClick={() => navigateToArtist(artist.id, {
+                      name: artist.name,
+                      picture: artist.picture,
+                    })}
+                    onContextMenu={(e) => handleArtistContextMenu(e, artist)}
+                    isArtist
+                    showPlayButton={false}
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -363,133 +459,6 @@ export default function SearchView({ query, onBack }: SearchViewProps) {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function ArtistGrid({
-  artists,
-  onArtistClick,
-  large = false,
-}: {
-  artists: { id: number; name: string; picture?: string }[];
-  onArtistClick: (artist: {
-    id: number;
-    name: string;
-    picture?: string;
-  }) => void;
-  large?: boolean;
-}) {
-  return (
-    <div
-      className={
-        large
-          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-          : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-      }
-    >
-      {artists.map((artist) => (
-        <div
-          key={artist.id}
-          onClick={() => onArtistClick(artist)}
-          className="p-3 bg-th-elevated hover:bg-th-surface-hover rounded-md cursor-pointer group transition-[background-color] duration-300 flex flex-col items-center"
-        >
-          <div className="aspect-square w-full rounded-full mb-3 relative overflow-hidden shadow-lg bg-th-surface-hover">
-            {artist.picture ? (
-              <TidalImage
-                src={getTidalImageUrl(artist.picture, 320)}
-                alt={artist.name}
-                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ease-out"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <User size={48} className="text-th-text-disabled" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full" />
-            <div className="absolute bottom-2 right-2 w-10 h-10 bg-th-accent rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
-              <Play size={20} fill="black" className="text-black ml-1" />
-            </div>
-          </div>
-          <h4 className="font-bold text-[15px] text-white truncate w-full text-center mb-1">
-            {artist.name}
-          </h4>
-          <p className="text-[13px] text-th-text-muted">Artist</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AlbumGrid({
-  albums,
-  onAlbumClick,
-  onContextMenu,
-  large = false,
-}: {
-  albums: AlbumDetail[];
-  onAlbumClick: (
-    id: number,
-    info?: { title: string; cover?: string; artistName?: string }
-  ) => void;
-  onContextMenu?: (e: React.MouseEvent, album: AlbumDetail) => void;
-  large?: boolean;
-}) {
-  return (
-    <div
-      className={
-        large
-          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-          : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-      }
-    >
-      {albums.map((album) => (
-        <div
-          key={album.id}
-          onClick={() =>
-            onAlbumClick(album.id, {
-              title: album.title,
-              cover: album.cover,
-              artistName: album.artist?.name,
-            })
-          }
-          onContextMenu={
-            onContextMenu ? (e) => onContextMenu(e, album) : undefined
-          }
-          className="p-3 bg-th-elevated hover:bg-th-surface-hover rounded-md cursor-pointer group transition-[background-color] duration-300"
-        >
-          <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-th-surface-hover">
-            <TidalImage
-              src={getTidalImageUrl(album.cover, 320)}
-              alt={album.title}
-              className="w-full h-full transform group-hover:scale-105 transition-transform duration-500 ease-out"
-            />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            {/* Three-dot button */}
-            <button
-              className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/80 z-10"
-              title="More options"
-              onClick={(e) => {
-                e.stopPropagation();
-                onContextMenu?.(e, album);
-              }}
-            >
-              <MoreHorizontal size={16} className="text-white" />
-            </button>
-            <div className="absolute bottom-2 right-2 w-10 h-10 bg-th-accent rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
-              <Play size={20} fill="black" className="text-black ml-1" />
-            </div>
-          </div>
-          <h4 className="font-bold text-[15px] text-white truncate mb-1">
-            {album.title}
-          </h4>
-          <p className="text-[13px] text-th-text-muted truncate">
-            {album.artist?.name || "Unknown Artist"}
-            {album.releaseDate && (
-              <span> &middot; {new Date(album.releaseDate).getFullYear()}</span>
-            )}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function TopHitsList({
   topHits,
@@ -633,100 +602,3 @@ function TopHitsList({
   );
 }
 
-function PlaylistGrid({
-  playlists,
-  onPlaylistClick,
-  onContextMenu,
-  large = false,
-}: {
-  playlists: Playlist[];
-  onPlaylistClick: (
-    id: string,
-    info?: {
-      title: string;
-      image?: string;
-      description?: string;
-      creatorName?: string;
-      numberOfTracks?: number;
-    }
-  ) => void;
-  onContextMenu?: (e: React.MouseEvent, playlist: Playlist) => void;
-  large?: boolean;
-}) {
-  return (
-    <div
-      className={
-        large
-          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-          : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
-      }
-    >
-      {playlists.map((pl) => (
-        <div
-          key={pl.uuid}
-          onClick={() =>
-            onPlaylistClick(pl.uuid, {
-              title: pl.title,
-              image: pl.image,
-              description: pl.description,
-              creatorName:
-                pl.creator?.name ||
-                (pl.creator?.id === 0 ? "TIDAL" : undefined),
-              numberOfTracks: pl.numberOfTracks,
-            })
-          }
-          onContextMenu={
-            onContextMenu ? (e) => onContextMenu(e, pl) : undefined
-          }
-          className="p-3 bg-th-elevated hover:bg-th-surface-hover rounded-md cursor-pointer group transition-[background-color] duration-300"
-        >
-          <div className="aspect-square w-full rounded-md mb-3 relative overflow-hidden shadow-lg bg-th-surface-hover">
-            {pl.image ? (
-              <TidalImage
-                src={getTidalImageUrl(pl.image, 320)}
-                alt={pl.title}
-                type="playlist"
-                className="w-full h-full transform group-hover:scale-105 transition-transform duration-500 ease-out"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Music size={32} className="text-th-text-disabled" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            {/* Three-dot button */}
-            <button
-              className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/80 z-10"
-              title="More options"
-              onClick={(e) => {
-                e.stopPropagation();
-                onContextMenu?.(e, pl);
-              }}
-            >
-              <MoreHorizontal size={16} className="text-white" />
-            </button>
-            <div className="absolute bottom-2 right-2 w-10 h-10 bg-th-accent rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-[opacity,transform] duration-300 scale-90 group-hover:scale-100">
-              <Play size={20} fill="black" className="text-black ml-1" />
-            </div>
-          </div>
-          <h4 className="font-bold text-[15px] text-white truncate mb-1">
-            {pl.title}
-          </h4>
-          <p className="text-[13px] text-th-text-muted line-clamp-1">
-            {pl.description ||
-              (pl.creator?.name
-                ? `By ${pl.creator.name}`
-                : pl.creator?.id === 0
-                ? "By TIDAL"
-                : "Playlist")}
-          </p>
-          {pl.numberOfTracks != null && (
-            <p className="text-[12px] text-th-text-faint mt-0.5">
-              {pl.numberOfTracks} tracks
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
