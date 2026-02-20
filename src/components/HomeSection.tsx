@@ -178,9 +178,21 @@ export default function HomeSection({ section }: HomeSectionProps) {
   };
 
   const isTrackSection = section.sectionType === "TRACK_LIST";
+  const isCompactGrid = section.sectionType === "COMPACT_GRID_CARD"
+    || section.title === "Recently played";
 
   if (isTrackSection) {
     return <TrackListSection section={section} items={items} />;
+  }
+
+  if (isCompactGrid) {
+    return (
+      <CompactGridSection
+        section={section}
+        items={items}
+        onItemClick={handleItemClick}
+      />
+    );
   }
 
   return (
@@ -451,6 +463,208 @@ function TrackListSection({
           cursorPosition={trackContextMenu.position}
           anchorRef={{ current: null }}
           onClose={() => setTrackContextMenu(null)}
+        />
+      )}
+    </section>
+  );
+}
+
+// Compact grid section — displayed as a multi-column grid of small cards (like "Continue listening")
+function CompactGridSection({
+  section,
+  items,
+  onItemClick,
+}: {
+  section: HomeSectionType;
+  items: any[];
+  onItemClick: (item: any) => void;
+}) {
+  const { navigateToViewAll, navigateToAlbum, navigateToArtist } = useNavigation();
+  const displayItems = items.slice(0, 16);
+
+  // Track context menu (for track items)
+  const [trackContextMenu, setTrackContextMenu] = useState<{
+    track: any;
+    index: number;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  // Media context menu (for non-track items)
+  const [mediaContextMenu, setMediaContextMenu] = useState<{
+    item: MediaItemType;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const openMenu = useCallback(
+    (e: React.MouseEvent, item: any, index: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const position = { x: e.clientX, y: e.clientY };
+
+      if (isTrackItem(item, section.sectionType)) {
+        setTrackContextMenu({ track: item, index, position });
+        return;
+      }
+
+      // Build MediaItemType for non-track items
+      let mediaItem: MediaItemType | null = null;
+      if (isMixItem(item, section.sectionType)) {
+        const mixId = item.mixId || item.id?.toString();
+        if (mixId) {
+          mediaItem = {
+            type: "mix",
+            mixId,
+            title: getItemTitle(item),
+            image: getItemImage(item),
+            subtitle: getItemSubtitle(item),
+          };
+        }
+      } else if (isArtistItem(item, section.sectionType)) {
+        if (item.id) {
+          mediaItem = {
+            type: "artist",
+            id: item.id,
+            name: item.name || getItemTitle(item),
+            picture: item.picture,
+          };
+        }
+      } else if (item.uuid) {
+        mediaItem = {
+          type: "playlist",
+          uuid: item.uuid,
+          title: item.title || getItemTitle(item),
+          image: item.squareImage || item.image,
+          creatorName:
+            item.creator?.name ||
+            (item.creator?.id === 0 ? "TIDAL" : undefined),
+        };
+      } else if (item.id) {
+        mediaItem = {
+          type: "album",
+          id: item.id,
+          title: item.title || getItemTitle(item),
+          cover: item.cover,
+          artistName: item.artist?.name || item.artists?.[0]?.name,
+        };
+      }
+
+      if (mediaItem) {
+        setMediaContextMenu({ item: mediaItem, position });
+      }
+    },
+    [section.sectionType]
+  );
+
+  return (
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[22px] font-bold text-white tracking-tight hover:underline cursor-pointer">
+          {section.title}
+        </h2>
+        {section.hasMore && section.apiPath && (
+          <button
+            onClick={() => navigateToViewAll(section.title, section.apiPath!)}
+            className="text-[13px] font-bold text-th-text-muted hover:text-white uppercase tracking-wider transition-colors"
+          >
+            View all
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-x-6 gap-y-1">
+        {displayItems.map((item: any, idx: number) => {
+          const isTrack = isTrackItem(item, section.sectionType);
+          return (
+            <div
+              key={getItemId(item)}
+              onClick={() => onItemClick(item)}
+              onContextMenu={(e) => openMenu(e, item, idx)}
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-th-inset cursor-pointer group transition-colors"
+            >
+              <div className="w-10 h-10 flex-shrink-0 rounded bg-th-surface-hover overflow-hidden relative">
+                {getItemImage(item, 160) ? (
+                  <img
+                    src={getItemImage(item, 160)}
+                    alt={getItemTitle(item)}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Music size={16} className="text-gray-600" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Play size={14} fill="white" className="text-white ml-0.5" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] text-white truncate font-medium">
+                  {isTrack && item.album ? (
+                    <span
+                      className="hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateToAlbum(item.album.id, {
+                          title: item.album.title,
+                          cover: item.album.cover,
+                        });
+                      }}
+                    >
+                      {getItemTitle(item)}
+                    </span>
+                  ) : (
+                    getItemTitle(item)
+                  )}
+                </p>
+                <p className="text-[12px] text-th-text-muted truncate">
+                  {isTrack && (item.artist || item.artists?.[0]) ? (
+                    <span
+                      className="hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const artistId = item.artist?.id || item.artists?.[0]?.id;
+                        const artistName = item.artist?.name || item.artists?.[0]?.name;
+                        if (artistId) {
+                          navigateToArtist(artistId, { name: artistName });
+                        }
+                      }}
+                    >
+                      {item.artist?.name || item.artists?.[0]?.name || ""}
+                    </span>
+                  ) : (
+                    getItemSubtitle(item)
+                  )}
+                </p>
+              </div>
+              {/* Three-dots on hover */}
+              <button
+                onClick={(e) => openMenu(e, item, idx)}
+                className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-th-text-muted hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-[opacity,colors]"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Track context menu */}
+      {trackContextMenu && (
+        <TrackContextMenu
+          track={trackContextMenu.track}
+          index={trackContextMenu.index}
+          cursorPosition={trackContextMenu.position}
+          anchorRef={{ current: null }}
+          onClose={() => setTrackContextMenu(null)}
+        />
+      )}
+
+      {/* Media context menu (albums, playlists, mixes, artists) */}
+      {mediaContextMenu && (
+        <MediaContextMenu
+          item={mediaContextMenu.item}
+          cursorPosition={mediaContextMenu.position}
+          onClose={() => setMediaContextMenu(null)}
         />
       )}
     </section>

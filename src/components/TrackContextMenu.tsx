@@ -142,7 +142,8 @@ export default function TrackContextMenu({
     };
   }, [onClose, anchorRef, showPlaylistSubmenu]);
 
-  const trackLabel = track.title.length > 30 ? track.title.slice(0, 28) + "…" : track.title;
+  const trackTitle = track.title || (track as any).name || "";
+  const trackLabel = trackTitle.length > 30 ? trackTitle.slice(0, 28) + "…" : trackTitle;
 
   const handlePlayNext = useCallback(() => {
     playNextInQueue(track);

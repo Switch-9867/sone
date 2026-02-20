@@ -107,7 +107,7 @@ export function isTrackItem(item: any, sectionType?: string): boolean {
     sectionType === "TRACK_LIST" ||
     getItemType(item) === "TRACK" ||
     (item.duration !== undefined &&
-      item.artist !== undefined &&
+      (item.artist !== undefined || item.artists !== undefined) &&
       item.album !== undefined)
   );
 }
