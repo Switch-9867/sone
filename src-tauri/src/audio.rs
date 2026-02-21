@@ -96,7 +96,8 @@ impl AudioPlayer {
                                 let capsfilter = gst::ElementFactory::make("capsfilter")
                                     .build()
                                     .map_err(|e| format!("Failed to create capsfilter: {e}"))?;
-                                let dev = device.as_deref().unwrap_or("hw:0,0");
+                                let dev = device.as_deref()
+                                    .ok_or_else(|| "No audio device selected for exclusive mode".to_string())?;
                                 let sink = gst::ElementFactory::make("alsasink")
                                     .property("device", dev)
                                     .build()
@@ -122,7 +123,8 @@ impl AudioPlayer {
                                     .build()
                                     .map_err(|e| format!("Failed to create user volume: {e}"))?;
                                 let sink = if exclusive {
-                                    let dev = device.as_deref().unwrap_or("hw:0,0");
+                                    let dev = device.as_deref()
+                                        .ok_or_else(|| "No audio device selected for exclusive mode".to_string())?;
                                     gst::ElementFactory::make("alsasink")
                                         .property("device", dev)
                                         .build()
@@ -368,8 +370,10 @@ fn list_alsa_devices() -> Result<Vec<AudioDevice>, String> {
     let devices = monitor.devices();
     monitor.stop();
 
+    log::debug!("[list_alsa_devices] DeviceMonitor found {} devices", devices.len());
+
     let mut result = Vec::new();
-    for dev in devices {
+    for dev in &devices {
         let Some(props) = dev.properties() else { continue };
 
         let api = props.get::<String>("device.api").unwrap_or_default();
@@ -377,16 +381,23 @@ fn list_alsa_devices() -> Result<Vec<AudioDevice>, String> {
             continue;
         }
 
-        // Try to get hw:X,Y path from properties
-        let card = props.get::<i32>("alsa.card").ok();
-        let dev_num = props.get::<i32>("alsa.device").ok();
+        // PipeWire exposes alsa.card and alsa.device as strings, not i32.
+        // Use api.alsa.path directly (e.g. "hw:5,0") when available,
+        // otherwise construct from string card+device properties.
+        let path = props.get::<String>("api.alsa.path").ok()
+            .or_else(|| {
+                let card = props.get::<String>("alsa.card").ok()?;
+                let dev_num = props.get::<String>("alsa.device").ok()?;
+                Some(format!("hw:{card},{dev_num}"))
+            });
 
-        if let (Some(c), Some(d)) = (card, dev_num) {
-            let hw_path = format!("hw:{c},{d}");
+        if let Some(path) = path {
             let name = dev.display_name().to_string();
-            result.push(AudioDevice { id: hw_path, name });
+            log::debug!("[list_alsa_devices] found: '{}' -> {}", name, path);
+            result.push(AudioDevice { id: path, name });
         }
     }
 
+    log::debug!("[list_alsa_devices] returning {} devices", result.len());
     Ok(result)
 }
