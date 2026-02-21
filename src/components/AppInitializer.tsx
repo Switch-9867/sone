@@ -103,8 +103,6 @@ export function AppInitializer() {
   deletedPlaylistIdsRef.current = deletedPlaylistIds;
 
   // ---- Refs ----
-  const hasRestoredPlaybackRef = useRef(false);
-  const playbackPersistReady = useRef(false);
   const volumeSyncedRef = useRef(false);
 
   // ================================================================
@@ -249,9 +247,20 @@ export function AppInitializer() {
   }, [isAuthenticated]);
 
   // ================================================================
-  //  PLAYBACK RESTORE from backend disk cache → localStorage fallback
+  //  PLAYBACK RESTORE + PERSISTENCE (merged into one effect)
+  //  1. Restore from backend disk → localStorage fallback
+  //  2. After restore completes, subscribe to atom changes for persistence
+  //  Merging avoids race: separate effects meant persistence subscriptions
+  //  were never set up because the guard ref was still false.
   // ================================================================
   useEffect(() => {
+    let cancelled = false;
+    let unsub1: (() => void) | null = null;
+    let unsub2: (() => void) | null = null;
+    let unsub3: (() => void) | null = null;
+    let backendTimer: ReturnType<typeof setTimeout> | null = null;
+    let latestJson: string | null = null;
+
     const restoreSnapshot = (raw: string) => {
       const parsed = JSON.parse(raw) as Partial<PlaybackSnapshot>;
 
@@ -281,7 +290,6 @@ export function AppInitializer() {
 
     const restore = async () => {
       try {
-        // Try backend disk cache first (survives app restarts reliably)
         const backendRaw = await loadPlaybackQueue();
         if (backendRaw) {
           restoreSnapshot(backendRaw);
@@ -299,11 +307,57 @@ export function AppInitializer() {
       }
     };
 
+    const setupPersistence = () => {
+      const persist = () => {
+        const snapshot: PlaybackSnapshot = {
+          currentTrack: store.get(currentTrackAtom),
+          queue: store.get(queueAtom),
+          history: store.get(historyAtom),
+        };
+        const json = JSON.stringify(snapshot);
+        latestJson = json;
+
+        // Immediate localStorage write
+        try {
+          localStorage.setItem(PLAYBACK_STATE_KEY, json);
+        } catch (err) {
+          console.error("Failed to persist playback state:", err);
+        }
+
+        // Debounced backend disk write (2s) to avoid excessive I/O
+        if (backendTimer) clearTimeout(backendTimer);
+        backendTimer = setTimeout(() => {
+          backendTimer = null;
+          latestJson = null;
+          savePlaybackQueue(json).catch((err) =>
+            console.error("Failed to save playback queue to backend:", err)
+          );
+        }, 2000);
+      };
+
+      unsub1 = store.sub(currentTrackAtom, persist);
+      unsub2 = store.sub(queueAtom, persist);
+      unsub3 = store.sub(historyAtom, persist);
+    };
+
     restore().finally(() => {
-      hasRestoredPlaybackRef.current = true;
+      if (!cancelled) setupPersistence();
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+      cancelled = true;
+      unsub1?.();
+      unsub2?.();
+      unsub3?.();
+      if (backendTimer) clearTimeout(backendTimer);
+      // Flush pending save on unmount
+      if (latestJson) {
+        savePlaybackQueue(latestJson).catch((err) =>
+          console.error("Failed to flush playback queue on unmount:", err)
+        );
+      }
+    };
+  }, [store]);
 
   // ================================================================
   //  VOLUME SYNC to backend (one-time, reads volume from store)
@@ -316,56 +370,6 @@ export function AppInitializer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ================================================================
-  //  PLAYBACK PERSISTENCE (reactive — persists on every state change)
-  //  Uses store.sub() to listen for changes without React re-renders.
-  //  Writes to localStorage immediately + debounced backend disk save.
-  // ================================================================
-  useEffect(() => {
-    // Wait until restore has run
-    if (!hasRestoredPlaybackRef.current) return;
-
-    let backendTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const persist = () => {
-      if (!playbackPersistReady.current) {
-        playbackPersistReady.current = true;
-        return;
-      }
-      const snapshot: PlaybackSnapshot = {
-        currentTrack: store.get(currentTrackAtom),
-        queue: store.get(queueAtom),
-        history: store.get(historyAtom),
-      };
-      const json = JSON.stringify(snapshot);
-
-      // Immediate localStorage write
-      try {
-        localStorage.setItem(PLAYBACK_STATE_KEY, json);
-      } catch (err) {
-        console.error("Failed to persist playback state:", err);
-      }
-
-      // Debounced backend disk write (2s) to avoid excessive I/O
-      if (backendTimer) clearTimeout(backendTimer);
-      backendTimer = setTimeout(() => {
-        savePlaybackQueue(json).catch(() => {});
-      }, 2000);
-    };
-
-    // Subscribe directly to the atoms we care about — no React re-render
-    const unsub1 = store.sub(currentTrackAtom, persist);
-    const unsub2 = store.sub(queueAtom, persist);
-    const unsub3 = store.sub(historyAtom, persist);
-
-    return () => {
-      unsub1();
-      unsub2();
-      unsub3();
-      if (backendTimer) clearTimeout(backendTimer);
-    };
-  }, [store]);
 
   // ================================================================
   //  AUTO-PLAY next track when current finishes

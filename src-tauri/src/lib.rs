@@ -169,9 +169,28 @@ impl AppState {
 
     pub fn read_state_file(&self, name: &str) -> Option<String> {
         let path = self.cache_dir.join(name);
-        let data = fs::read(&path).ok()?;
-        let plain = self.crypto.decrypt(&data).ok()?;
-        String::from_utf8(plain).ok()
+        let data = match fs::read(&path) {
+            Ok(d) => d,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
+            Err(e) => {
+                log::warn!("Failed to read state file {name}: {e}");
+                return None;
+            }
+        };
+        let plain = match self.crypto.decrypt(&data) {
+            Ok(p) => p,
+            Err(e) => {
+                log::warn!("Failed to decrypt state file {name}: {e}");
+                return None;
+            }
+        };
+        match String::from_utf8(plain) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                log::warn!("State file {name} contains invalid UTF-8: {e}");
+                None
+            }
+        }
     }
 
     pub fn write_state_file(&self, name: &str, content: &str) -> Result<(), SoneError> {
