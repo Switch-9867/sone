@@ -96,8 +96,11 @@ impl AudioPlayer {
                                     }
                                 }
 
-                                // EOS drain: flush buffers gracefully
+                                // EOS drain: flush buffers gracefully.
+                                // Reset stale flag BEFORE sending — otherwise a previous
+                                // track's natural EOS short-circuits the wait (720ns drain).
                                 old.send_event(gst::event::Eos::new());
+                                eos.store(false, Ordering::SeqCst);
                                 let drain_timeout = if pipeline_exclusive { 1000 } else { 500 };
                                 let start = std::time::Instant::now();
                                 while !eos.load(Ordering::SeqCst)
