@@ -207,25 +207,6 @@ export function AppInitializer() {
           }
         }
 
-        // Favorite IDs — unified endpoint (tracks/albums/artists/playlists in one call)
-        getAllFavoriteIds(userId)
-          .then((ids) => {
-            setFavoriteTrackIds(new Set(ids.tracks));
-            setFavoriteAlbumIds(new Set(ids.albums));
-            setFollowedArtistIds(new Set(ids.artists));
-            setFavoritePlaylistUuids(new Set(ids.playlists));
-          })
-          .catch((error) =>
-            console.error("Failed to load favorite IDs:", error),
-          );
-
-        // Mix IDs still separate (v2 endpoint, not in unified response)
-        invoke<string[]>("get_favorite_mix_ids")
-          .then((ids) => setFavoriteMixIds(new Set(ids)))
-          .catch((error) =>
-            console.error("Failed to load favorite mix IDs:", error),
-          );
-
         // Preload home page (fire-and-forget)
         getHomePage().catch(() => {});
       } catch (err) {
@@ -246,6 +227,26 @@ export function AppInitializer() {
 
     const userId = store.get(authTokensAtom)?.user_id;
     if (!userId) return;
+
+    // Favorite IDs — unified endpoint (tracks/albums/artists/playlists in one call)
+    // Runs immediately on auth (both saved-token restore AND fresh login).
+    getAllFavoriteIds(userId)
+      .then((ids) => {
+        setFavoriteTrackIds(new Set(ids.tracks));
+        setFavoriteAlbumIds(new Set(ids.albums));
+        setFollowedArtistIds(new Set(ids.artists));
+        setFavoritePlaylistUuids(new Set(ids.playlists));
+      })
+      .catch((error) =>
+        console.error("Failed to load favorite IDs:", error),
+      );
+
+    // Mix IDs still separate (v2 endpoint, not in unified response)
+    invoke<string[]>("get_favorite_mix_ids")
+      .then((ids) => setFavoriteMixIds(new Set(ids)))
+      .catch((error) =>
+        console.error("Failed to load favorite mix IDs:", error),
+      );
 
     // Non-blocking background preload (2s delay to avoid startup congestion)
     const timer = setTimeout(() => {
