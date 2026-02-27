@@ -6,14 +6,16 @@ import {
   Trash2,
   ListMusic,
 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useToast } from "../contexts/ToastContext";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
 import { useFavorites } from "../hooks/useFavorites";
 import { useNavigation } from "../hooks/useNavigation";
 import { usePlaylists } from "../hooks/usePlaylists";
+import { useContextMenu } from "../hooks/useContextMenu";
 import type { Track } from "../types";
 import AddToPlaylistMenu from "./AddToPlaylistMenu";
+import MenuPortal from "./MenuPortal";
 
 interface TrackContextMenuProps {
   track: Track;
@@ -45,12 +47,6 @@ export default function TrackContextMenu({
   const { removeTrackFromPlaylist } = usePlaylists();
   const { showToast } = useToast();
 
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number }>({
-    top: -9999,
-    left: -9999,
-  });
-  const [isPositioned, setIsPositioned] = useState(false);
   const [showPlaylistSubmenu, setShowPlaylistSubmenu] = useState(false);
 
   // Fake anchor ref for AddToPlaylistMenu positioning — we'll use the menu itself
@@ -59,89 +55,12 @@ export default function TrackContextMenu({
   const isFav = favoriteTrackIds.has(track.id);
   const canRemoveFromPlaylist = !!playlistId && !!isUserPlaylist;
 
-  // Position the menu: measure actual size, clamp to viewport.
-  // In Tauri's WebKit, getBoundingClientRect() returns CSS-pixel values while
-  // mouse clientX/clientY are in viewport (zoomed) coordinates.  Only cursor
-  // positions need zoom compensation; rect values & viewport bounds do not.
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      if (!menu) return;
-
-      const menuRect = menu.getBoundingClientRect();
-      const menuWidth = menuRect.width || 240;
-      const menuHeight = menuRect.height || 300;
-      const viewW = window.innerWidth;
-      const viewH = window.innerHeight;
-      const pad = 8;
-
-      let top: number;
-      let left: number;
-
-      if (cursorPosition) {
-        // Right-click: clientX/Y are in viewport (zoomed) coords — convert to CSS px
-        const zoom = parseFloat(document.documentElement.style.zoom || "1");
-        top = cursorPosition.y / zoom;
-        left = cursorPosition.x / zoom;
-      } else if (anchorRef.current) {
-        // Dots button: getBoundingClientRect already returns CSS px
-        const rect = anchorRef.current.getBoundingClientRect();
-        top = rect.bottom + 4;
-        left = rect.right - menuWidth;
-      } else {
-        return;
-      }
-
-      // Clamp horizontally
-      if (left < pad) left = pad;
-      if (left + menuWidth > viewW - pad) {
-        left = viewW - menuWidth - pad;
-      }
-
-      // Clamp vertically: flip upward if it would overflow
-      if (top + menuHeight > viewH - pad) {
-        if (cursorPosition) {
-          const zoom = parseFloat(document.documentElement.style.zoom || "1");
-          top = cursorPosition.y / zoom - menuHeight;
-        } else if (anchorRef.current) {
-          const rect = anchorRef.current.getBoundingClientRect();
-          top = rect.top - menuHeight - 4;
-        }
-      }
-      if (top < pad) top = pad;
-
-      setPosition({ top, left });
-      setIsPositioned(true);
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [anchorRef, cursorPosition, canRemoveFromPlaylist]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (showPlaylistSubmenu) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        (!anchorRef.current || !anchorRef.current.contains(e.target as Node))
-      ) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose, anchorRef, showPlaylistSubmenu]);
+  const { menuRef, style } = useContextMenu({
+    cursorPosition,
+    anchorRef,
+    suppressClose: showPlaylistSubmenu,
+    onClose,
+  });
 
   const trackTitle = track.title || (track as any).name || "";
   const trackLabel =
@@ -217,16 +136,11 @@ export default function TrackContextMenu({
     "w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left text-[14px] text-th-text-secondary hover:text-white";
 
   return (
-    <>
+    <MenuPortal>
       <div
         ref={menuRef}
-        className="fixed z-9999 w-[240px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col py-1"
-        style={{
-          top: position.top,
-          left: position.left,
-          opacity: isPositioned ? 1 : 0,
-          animation: isPositioned ? "fadeIn 0.12s ease-out" : undefined,
-        }}
+        className="z-[9999] w-[240px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col py-1"
+        style={style}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Play next */}
@@ -303,6 +217,6 @@ export default function TrackContextMenu({
           }}
         />
       )}
-    </>
+    </MenuPortal>
   );
 }

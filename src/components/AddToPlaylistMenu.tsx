@@ -2,8 +2,10 @@ import { Plus, Search, X, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useToast } from "../contexts/ToastContext";
 import { usePlaylists } from "../hooks/usePlaylists";
+import { useContextMenu } from "../hooks/useContextMenu";
 import { type Playlist, getTidalImageUrl } from "../types";
 import TidalImage from "./TidalImage";
+import MenuPortal from "./MenuPortal";
 
 // ─── Public API ────────────────────────────────────────────────
 
@@ -199,53 +201,14 @@ export default function AddToPlaylistMenu({
   const [addedTo, setAddedTo] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Position the menu relative to the anchor (measure-based).
-  // getBoundingClientRect() returns CSS-pixel values in Tauri's WebKit,
-  // so no zoom compensation is needed here.
-  const [position, setPosition] = useState<{ top: number; left: number }>({
-    top: -9999,
-    left: -9999,
+  const { menuRef, style } = useContextMenu({
+    anchorRef,
+    anchorGap: 6,
+    suppressClose: showCreateModal,
+    onClose,
   });
-  const [isPositioned, setIsPositioned] = useState(false);
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      if (!menu || !anchorRef.current) return;
-
-      const anchorRect = anchorRef.current.getBoundingClientRect();
-      const menuRect = menu.getBoundingClientRect();
-
-      const menuWidth = menuRect.width || 320;
-      const menuHeight = menuRect.height || 420;
-      const viewW = window.innerWidth;
-      const viewH = window.innerHeight;
-      const pad = 8;
-
-      let top = anchorRect.bottom + 6;
-      let left = anchorRect.right - menuWidth;
-
-      // Clamp horizontally
-      if (left < pad) left = pad;
-      if (left + menuWidth > viewW - pad) {
-        left = viewW - menuWidth - pad;
-      }
-
-      // Clamp vertically: flip above anchor if overflowing bottom
-      if (top + menuHeight > viewH - pad) {
-        top = anchorRect.top - menuHeight - 6;
-      }
-      if (top < pad) top = pad;
-
-      setPosition({ top, left });
-      setIsPositioned(true);
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [anchorRef]);
 
   // Focus search when showing all
   useEffect(() => {
@@ -253,33 +216,6 @@ export default function AddToPlaylistMenu({
       searchRef.current.focus();
     }
   }, [showAll]);
-
-  // Close on click outside (but not when modal is open)
-  useEffect(() => {
-    if (showCreateModal) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        anchorRef.current &&
-        !anchorRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose, anchorRef, showCreateModal]);
 
   // Recent playlists
   const recentIds = getRecentPlaylistIds();
@@ -434,17 +370,12 @@ export default function AddToPlaylistMenu({
   // ── Render ──
 
   return (
-    <>
+    <MenuPortal>
       {/* Context menu */}
       <div
         ref={menuRef}
-        className="fixed z-[9999] w-[320px] max-h-[420px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col"
-        style={{
-          top: position.top,
-          left: position.left,
-          opacity: isPositioned ? 1 : 0,
-          animation: isPositioned ? "fadeIn 0.12s ease-out" : undefined,
-        }}
+        className="z-[9999] w-[320px] max-h-[420px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        style={style}
         onClick={(e) => e.stopPropagation()}
       >
         {showAll ? (
@@ -576,6 +507,6 @@ export default function AddToPlaylistMenu({
           }}
         />
       )}
-    </>
+    </MenuPortal>
   );
 }

@@ -23,9 +23,11 @@ import { fetchMediaTracks } from "../api/tidal";
 import { usePlaybackActions } from "../hooks/usePlaybackActions";
 import { useFavorites } from "../hooks/useFavorites";
 import { usePlaylists } from "../hooks/usePlaylists";
+import { useContextMenu } from "../hooks/useContextMenu";
 import { userPlaylistsAtom } from "../atoms/playlists";
 import { currentViewAtom } from "../atoms/navigation";
 import AddToPlaylistMenu from "./AddToPlaylistMenu";
+import MenuPortal from "./MenuPortal";
 
 interface MediaContextMenuProps {
   item: MediaItemType;
@@ -60,12 +62,6 @@ export default function MediaContextMenu({
   const setCurrentView = useSetAtom(currentViewAtom);
   const userPlaylists = useAtomValue(userPlaylistsAtom);
 
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number }>({
-    top: -9999,
-    left: -9999,
-  });
-  const [isPositioned, setIsPositioned] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   // "Add to playlist" sub-menu state
@@ -109,63 +105,11 @@ export default function MediaContextMenu({
     favoriteMixIds,
   ]);
 
-  // Position the menu at cursor, clamped to viewport
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      if (!menu) return;
-
-      const menuRect = menu.getBoundingClientRect();
-      const menuWidth = menuRect.width || 240;
-      const menuHeight = menuRect.height || 300;
-      const viewW = window.innerWidth;
-      const viewH = window.innerHeight;
-      const pad = 8;
-
-      const zoom = parseFloat(document.documentElement.style.zoom || "1");
-      let top = cursorPosition.y / zoom;
-      let left = cursorPosition.x / zoom;
-
-      // Clamp horizontally
-      if (left < pad) left = pad;
-      if (left + menuWidth > viewW - pad) {
-        left = viewW - menuWidth - pad;
-      }
-
-      // Clamp vertically
-      if (top + menuHeight > viewH - pad) {
-        top = cursorPosition.y / zoom - menuHeight;
-      }
-      if (top < pad) top = pad;
-
-      setPosition({ top, left });
-      setIsPositioned(true);
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [cursorPosition]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (showPlaylistSubmenu || showDeleteConfirm) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose, showPlaylistSubmenu, showDeleteConfirm]);
+  const { menuRef, style } = useContextMenu({
+    cursorPosition,
+    suppressClose: showPlaylistSubmenu || showDeleteConfirm,
+    onClose,
+  });
 
   /** Short display label for the media item */
   const rawLabel = item.type === "artist" ? item.name : item.title;
@@ -351,16 +295,11 @@ export default function MediaContextMenu({
     item.type === "mix";
 
   return (
-    <>
+    <MenuPortal>
       <div
         ref={menuRef}
-        className="fixed z-[9999] w-[240px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col py-1"
-        style={{
-          top: position.top,
-          left: position.left,
-          opacity: isPositioned ? 1 : 0,
-          animation: isPositioned ? "fadeIn 0.12s ease-out" : undefined,
-        }}
+        className="z-[9999] w-[240px] bg-th-surface rounded-xl shadow-2xl overflow-hidden flex flex-col py-1"
+        style={style}
         onClick={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.stopPropagation()}
       >
@@ -539,6 +478,6 @@ export default function MediaContextMenu({
           }}
         />
       )}
-    </>
+    </MenuPortal>
   );
 }
