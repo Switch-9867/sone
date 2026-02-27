@@ -38,7 +38,8 @@ COPY . .
 RUN --mount=type=cache,id=sone-pacman-registry,target=/root/.cargo/registry \
     --mount=type=cache,id=sone-pacman-git,target=/root/.cargo/git \
     --mount=type=cache,id=sone-pacman-target,target=/app/src-tauri/target \
-    npm run tauri build -- --bundles deb \
+    rm -f src-tauri/target/release/bundle/deb/SONE_*.deb \
+    && npm run tauri build -- --bundles deb \
     && mkdir -p /build \
     && cp src-tauri/target/release/bundle/deb/SONE_*.deb /build/sone.deb
 
